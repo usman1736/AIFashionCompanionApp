@@ -1,0 +1,15 @@
+export const colors = {
+  background: "#3A070A",
+  gold: "#C8A96A",
+  white: "#F5EFE6",
+  offWhite: "#F4EEE8",
+  buttonPrimary: "#7A0F14",
+  buttonPrimaryPressed: "#650C11",
+  buttonSecondary: "#F5EFE6",
+  buttonSecondaryPressed: "#E9E1D7",
+  buttonSecondaryText: "#7A0F14",
+  textPrimary: "#F5EFE6",
+  textSecondary: "#E7D8C7",
+  darkText: "#1C1C1C",
+  mutedText: "#6F6F6F",
+};
