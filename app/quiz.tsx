@@ -1,4 +1,6 @@
 import { useNavigation, useRouter } from "expo-router";
+import { getAuth } from "firebase/auth";
+import { doc, getFirestore, setDoc } from "firebase/firestore";
 import React, { useEffect, useMemo, useState } from "react";
 import { StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import AuthScreenWrapper from "../components/layout/AuthScreenWrapper";
@@ -77,6 +79,33 @@ export default function QuizScreen() {
     );
   }, [selectedStyles, selectedColors, selectedOccasions, selectedSeason]);
 
+  const handleSubmitQuiz = async () => {
+    try {
+      const auth = getAuth();
+      const db = getFirestore();
+      const user = auth.currentUser;
+
+      if (!user) return;
+
+      await setDoc(
+        doc(db, "users", user.uid),
+        {
+          quizAnswers: {
+            styles: selectedStyles,
+            colors: selectedColors,
+            occasions: selectedOccasions,
+            season: selectedSeason,
+          },
+          quizComplete: true,
+        },
+        { merge: true },
+      );
+
+      router.push("/measurement-choice");
+    } catch (error) {
+      alert("Failed to save. Please check your internet and try again.");
+    }
+  };
   return (
     <AuthScreenWrapper
       subtitle="Let's Set Up Your Style"
@@ -159,7 +188,7 @@ export default function QuizScreen() {
         <AuthButton
           title="Continue"
           disabled={!canContinue}
-          onPress={() => router.push("/measurement-choice")}
+          onPress={handleSubmitQuiz}
         />
       </View>
     </AuthScreenWrapper>
