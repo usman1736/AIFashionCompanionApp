@@ -53,7 +53,7 @@ export default function QuizScreen() {
   const [selectedColors, setSelectedColors] = useState<string[]>([]);
   const [selectedOccasions, setSelectedOccasions] = useState<string[]>([]);
   const [selectedSeason, setSelectedSeason] = useState<string | null>(null);
-
+  const [currentStep, setCurrentStep] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState(false);
 
@@ -88,7 +88,21 @@ export default function QuizScreen() {
         : [...prev, value],
     );
   };
+  const canGoNext = () => {
+    if (currentStep === 0) return selectedStyles.length > 0;
+    if (currentStep === 1) return selectedColors.length > 0;
+    if (currentStep === 2) return selectedOccasions.length > 0;
+    if (currentStep === 3) return !!selectedSeason;
+    return false;
+  };
 
+  const handleNext = () => {
+    if (currentStep < 3) setCurrentStep(currentStep + 1);
+  };
+
+  const handleBack = () => {
+    if (currentStep > 0) setCurrentStep(currentStep - 1);
+  };
   const canContinue = useMemo(() => {
     return (
       selectedStyles.length > 0 &&
@@ -140,7 +154,9 @@ export default function QuizScreen() {
       backgroundColor={colors.buttonSecondary}
     >
       <View style={{ marginBottom: 16 }}>
-        <Text style={{ color: "#6A6A6A", marginBottom: 6 }}>Step 1 of 1</Text>
+        <Text style={{ color: "#6A6A6A", marginBottom: 6 }}>
+          Step {currentStep + 1} of 4
+        </Text>
         <View
           style={{ height: 6, backgroundColor: "#E0E0E0", borderRadius: 4 }}
         >
@@ -158,8 +174,8 @@ export default function QuizScreen() {
         Answer a few quick questions so AURA can personalize your outfits.
       </Text>
 
-      <View style={[styles.layout, isTablet && styles.layoutTablet]}>
-        <View style={styles.column}>
+      <View style={styles.layout}>
+        {currentStep === 0 && (
           <View style={styles.card}>
             <Text style={styles.title}>Which styles match you?</Text>
             <View style={styles.rowWrap}>
@@ -179,7 +195,8 @@ export default function QuizScreen() {
               </Text>
             )}
           </View>
-
+        )}
+        {currentStep === 1 && (
           <View style={styles.card}>
             <Text style={styles.title}>What colors do you like wearing?</Text>
             <View style={styles.colorRow}>
@@ -192,10 +209,14 @@ export default function QuizScreen() {
                 />
               ))}
             </View>
+            {selectedColors.length === 0 && (
+              <Text style={{ color: "red", fontSize: 12 }}>
+                Please select at least one color
+              </Text>
+            )}
           </View>
-        </View>
-
-        <View style={styles.column}>
+        )}
+        {currentStep === 2 && (
           <View style={styles.card}>
             <Text style={styles.title}>What do you dress for most often?</Text>
             <View style={styles.rowWrap}>
@@ -217,7 +238,8 @@ export default function QuizScreen() {
               </Text>
             )}
           </View>
-
+        )}
+        {currentStep === 3 && (
           <View style={styles.card}>
             <Text style={styles.title}>
               Which season best matches your wardrobe?
@@ -239,7 +261,7 @@ export default function QuizScreen() {
               </Text>
             )}
           </View>
-        </View>
+        )}
       </View>
 
       <View style={styles.buttonWrap}>
@@ -248,11 +270,22 @@ export default function QuizScreen() {
             Failed to save. Please check your internet and try again.
           </Text>
         )}
-        <AuthButton
-          title={isSaving ? "Saving..." : "Continue"}
-          disabled={!canContinue || isSaving}
-          onPress={handleSubmitQuiz}
-        />
+        <View style={{ flexDirection: "row", gap: 10 }}>
+          {currentStep > 0 && <AuthButton title="Back" onPress={handleBack} />}
+          {currentStep < 3 ? (
+            <AuthButton
+              title="Next"
+              disabled={!canGoNext()}
+              onPress={handleNext}
+            />
+          ) : (
+            <AuthButton
+              title={isSaving ? "Saving..." : "Continue"}
+              disabled={!canContinue || isSaving}
+              onPress={handleSubmitQuiz}
+            />
+          )}
+        </View>
         {saveError && <AuthButton title="Retry" onPress={handleSubmitQuiz} />}
       </View>
     </AuthScreenWrapper>
