@@ -1,6 +1,7 @@
+import * as Network from "expo-network";
 import { useNavigation, useRouter } from "expo-router";
 import { getAuth } from "firebase/auth";
-import { doc, getFirestore, setDoc } from "firebase/firestore";
+import { doc, getDoc, getFirestore, setDoc } from "firebase/firestore";
 import React, { useEffect, useMemo, useState } from "react";
 import { StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import AuthScreenWrapper from "../components/layout/AuthScreenWrapper";
@@ -53,11 +54,29 @@ export default function QuizScreen() {
   const [selectedOccasions, setSelectedOccasions] = useState<string[]>([]);
   const [selectedSeason, setSelectedSeason] = useState<string | null>(null);
 
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState(false);
+
   useEffect(() => {
     navigation.setOptions({
       gestureEnabled: false,
     });
   }, [navigation]);
+
+  useEffect(() => {
+    const auth = getAuth();
+    const db = getFirestore();
+    const user = auth.currentUser;
+
+    if (!user) return;
+
+    const userDoc = doc(db, "users", user.uid);
+    getDoc(userDoc).then((snap) => {
+      if (snap.exists() && snap.data().quizComplete === true) {
+        router.push("/measurement-choice");
+      }
+    });
+  }, []);
 
   const toggleMultiSelect = (
     value: string,
@@ -80,6 +99,13 @@ export default function QuizScreen() {
   }, [selectedStyles, selectedColors, selectedOccasions, selectedSeason]);
 
   const handleSubmitQuiz = async () => {
+    const network = await Network.getNetworkStateAsync();
+    if (!network.isConnected) {
+      alert("Internet connection required to complete onboarding.");
+      return;
+    }
+    setIsSaving(true);
+    setSaveError(false);
     try {
       const auth = getAuth();
       const db = getFirestore();
@@ -103,7 +129,9 @@ export default function QuizScreen() {
 
       router.push("/measurement-choice");
     } catch (error) {
-      alert("Failed to save. Please check your internet and try again.");
+      setSaveError(true);
+    } finally {
+      setIsSaving(false);
     }
   };
   return (
@@ -185,11 +213,17 @@ export default function QuizScreen() {
       </View>
 
       <View style={styles.buttonWrap}>
+        {saveError && (
+          <Text style={{ color: "red", textAlign: "center", marginBottom: 8 }}>
+            Failed to save. Please check your internet and try again.
+          </Text>
+        )}
         <AuthButton
-          title="Continue"
-          disabled={!canContinue}
+          title={isSaving ? "Saving..." : "Continue"}
+          disabled={!canContinue || isSaving}
           onPress={handleSubmitQuiz}
         />
+        {saveError && <AuthButton title="Retry" onPress={handleSubmitQuiz} />}
       </View>
     </AuthScreenWrapper>
   );
