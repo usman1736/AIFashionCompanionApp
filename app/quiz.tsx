@@ -9,6 +9,7 @@ import AuthButton from "../components/ui/AuthButton";
 import ColorCircle from "../components/ui/ColorCircle";
 import OptionChip from "../components/ui/OptionChip";
 import SeasonOption from "../components/ui/SeasonOption";
+import { auth } from "../firebaseConfig";
 import { colors } from "../styles/colors";
 import { spacing } from "../styles/spacing";
 import { typography } from "../styles/typography";
@@ -68,10 +69,7 @@ export default function QuizScreen() {
     const db = getFirestore();
     const user = auth.currentUser;
 
-    if (!user) {
-      alert("You must be logged in to continue.");
-      return;
-    }
+    if (!user) return;
 
     const userDoc = doc(db, "users", user.uid);
     getDoc(userDoc).then((snap) => {
@@ -124,11 +122,19 @@ export default function QuizScreen() {
     setIsSaving(true);
     setSaveError(false);
     try {
-      const auth = getAuth();
       const db = getFirestore();
-      const user = auth.currentUser;
 
-      if (!user) return;
+      const user = await new Promise<any>((resolve) => {
+        const unsubscribe = auth.onAuthStateChanged((u) => {
+          unsubscribe();
+          resolve(u);
+        });
+      });
+
+      if (!user) {
+        alert("You must be logged in to continue.");
+        return;
+      }
 
       await setDoc(
         doc(db, "users", user.uid),

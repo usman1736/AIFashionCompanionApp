@@ -1,6 +1,8 @@
 import { useRouter } from "expo-router";
-import React from "react";
+import { createUserWithEmailAndPassword } from "firebase/auth";
+import React, { useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
+import { auth } from "../firebaseConfig";
 
 import AuthScreenWrapper from "../components/layout/AuthScreenWrapper";
 import AuthButton from "../components/ui/AuthButton";
@@ -13,6 +15,19 @@ import { typography } from "../styles/typography";
 
 export default function SignupScreen() {
   const router = useRouter();
+
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+
+  const handleSignup = async () => {
+    try {
+      await createUserWithEmailAndPassword(auth, email, password);
+      router.push("/quiz");
+    } catch (error: any) {
+      console.log("Signup Error:", error.message);
+      alert(error.message);
+    }
+  };
 
   return (
     <AuthScreenWrapper
@@ -44,6 +59,7 @@ export default function SignupScreen() {
             keyboardType="email-address"
             autoCapitalize="none"
             textContentType="emailAddress"
+            onChangeText={setEmail}
           />
         </View>
 
@@ -52,6 +68,7 @@ export default function SignupScreen() {
             label="Password"
             placeholder="Your Password"
             textContentType="newPassword"
+            onChangeText={setPassword}
           />
         </View>
 
@@ -64,10 +81,7 @@ export default function SignupScreen() {
         </View>
 
         <View style={styles.buttonWrap}>
-          <AuthButton
-            title="Create Account"
-            onPress={() => router.push("/quiz")}
-          />
+          <AuthButton title="Create Account" onPress={handleSignup} />
         </View>
 
         <Text style={styles.loginText}>
