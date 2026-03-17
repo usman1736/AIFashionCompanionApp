@@ -68,7 +68,10 @@ export default function QuizScreen() {
     const db = getFirestore();
     const user = auth.currentUser;
 
-    if (!user) return;
+    if (!user) {
+      alert("You must be logged in to continue.");
+      return;
+    }
 
     const userDoc = doc(db, "users", user.uid);
     getDoc(userDoc).then((snap) => {
