@@ -161,6 +161,12 @@ export default function QuizScreen() {
           disabled={!canContinue}
           onPress={() => router.push("/measurement-choice")}
         />
+        <AuthButton
+          title="[DEV] Go to Home"
+          variant="secondary"
+          onPress={() => router.push("/home")}
+          style={{ marginTop: spacing.lg }}
+        />
       </View>
     </AuthScreenWrapper>
   );

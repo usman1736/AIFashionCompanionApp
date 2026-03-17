@@ -1,12 +1,15 @@
 import { useNavigation } from "expo-router";
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import {
+  ActivityIndicator,
   ScrollView,
   StyleSheet,
   Text,
   View,
   useWindowDimensions,
 } from "react-native";
+import { doc, getDoc } from "firebase/firestore";
+import { auth, db } from "../firebaseConfig";
 import AppScreenWrapper from "../components/layout/AppScreenWrapper";
 import AuthButton from "../components/ui/AuthButton";
 import ProductThumbCard from "../components/ui/ProductThumbCard";
@@ -14,27 +17,19 @@ import { colors } from "../styles/colors";
 import { spacing } from "../styles/spacing";
 import { typography } from "../styles/typography";
 
-const homeData = {
-  greeting: "Hello, User 👋",
-  subtitle: "Here’s your style overview for today.",
-  closetSummary: {
-    totalItems: "...",
-    commonColor: "...",
-    categoriesCovered: "...",
-  },
-  todayOutfit: [
-    { id: 1, label: "Top" },
-    { id: 2, label: "Bottom" },
-    { id: 3, label: "Shoes" },
-    { id: 4, label: "Accessory" },
-  ],
-  recentlyAdded: [
-    { id: 1, title: "Black Jacket" },
-    { id: 2, title: "White Sneakers" },
-    { id: 3, title: "Blue Jeans" },
-    { id: 4, title: "Beige Coat" },
-  ],
-};
+const todayOutfit = [
+  { id: 1, label: "Top" },
+  { id: 2, label: "Bottom" },
+  { id: 3, label: "Shoes" },
+  { id: 4, label: "Accessory" },
+];
+
+const recentlyAdded = [
+  { id: 1, title: "Black Jacket" },
+  { id: 2, title: "White Sneakers" },
+  { id: 3, title: "Blue Jeans" },
+  { id: 4, title: "Beige Coat" },
+];
 
 export default function HomeScreen() {
   const navigation = useNavigation();
@@ -43,16 +38,58 @@ export default function HomeScreen() {
   const isTablet = width >= 768;
   const isLargeTablet = width >= 1024;
 
+  const [loading, setLoading] = useState(true);
+  const [displayName, setDisplayName] = useState("User");
+  const [error, setError] = useState(false);
+
   useEffect(() => {
-    navigation.setOptions({
-      gestureEnabled: false,
-    });
+    navigation.setOptions({ gestureEnabled: false });
   }, [navigation]);
+
+  useEffect(() => {
+    const user = auth.currentUser;
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+
+    const fetchUserData = async () => {
+      try {
+        const userDoc = await getDoc(doc(db, "users", user.uid));
+        if (userDoc.exists()) {
+          const data = userDoc.data();
+          setDisplayName(data.displayName || user.email || "User");
+        }
+      } catch (e) {
+        setError(true);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchUserData();
+  }, []);
+
+  if (loading) {
+    return (
+      <View style={styles.centered}>
+        <ActivityIndicator size="large" color={colors.buttonPrimary} />
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={styles.centered}>
+        <Text style={styles.errorText}>Something went wrong. Please restart the app.</Text>
+      </View>
+    );
+  }
 
   return (
     <AppScreenWrapper backgroundColor={colors.offWhite}>
-      <Text style={styles.welcomeText}>{homeData.greeting}</Text>
-      <Text style={styles.subText}>{homeData.subtitle}</Text>
+      <Text style={styles.welcomeText}>Hello, {displayName} 👋</Text>
+      <Text style={styles.subText}>Here's your style overview for today.</Text>
 
       <View
         style={[
@@ -64,26 +101,18 @@ export default function HomeScreen() {
         <View style={[styles.leftColumn, isTablet && styles.leftColumnTablet]}>
           <View style={styles.summaryCard}>
             <Text style={styles.summaryTitle}>Your Closet Summary</Text>
-            <Text style={styles.summaryText}>
-              Total Items: {homeData.closetSummary.totalItems}
-            </Text>
-            <Text style={styles.summaryText}>
-              Most Common Color: {homeData.closetSummary.commonColor}
-            </Text>
-            <Text style={styles.summaryText}>
-              Categories Covered: {homeData.closetSummary.categoriesCovered}
-            </Text>
+            <Text style={styles.summaryText}>Total Items: —</Text>
+            <Text style={styles.summaryText}>Most Common Color: —</Text>
+            <Text style={styles.summaryText}>Categories Covered: —</Text>
           </View>
         </View>
 
-        <View
-          style={[styles.rightColumn, isTablet && styles.rightColumnTablet]}
-        >
+        <View style={[styles.rightColumn, isTablet && styles.rightColumnTablet]}>
           <Text style={styles.sectionTitle}>Today's Outfit Suggestion</Text>
 
           <View style={styles.outfitCard}>
             <View style={styles.outfitRow}>
-              {homeData.todayOutfit.map((item) => (
+              {todayOutfit.map((item) => (
                 <View key={item.id} style={styles.outfitPlaceholderWrap}>
                   <View style={styles.outfitPlaceholder} />
                   <Text style={styles.outfitLabel}>{item.label}</Text>
@@ -118,7 +147,7 @@ export default function HomeScreen() {
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.recentScrollContent}
       >
-        {homeData.recentlyAdded.map((item) => (
+        {recentlyAdded.map((item) => (
           <View key={item.id} style={styles.productCardWrap}>
             <ProductThumbCard title={item.title} />
           </View>
@@ -129,6 +158,18 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
+  centered: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: colors.offWhite,
+  },
+  errorText: {
+    ...typography.body,
+    color: colors.buttonPrimary,
+    textAlign: "center",
+    paddingHorizontal: spacing.xl,
+  },
   welcomeText: {
     ...typography.heading,
     color: colors.darkText,
