@@ -2,7 +2,8 @@ import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { createUserWithEmailAndPassword } from "firebase/auth";
-import { auth } from "../firebaseConfig";
+import { doc, setDoc, serverTimestamp } from "firebase/firestore";
+import { auth, db } from "../firebaseConfig";
 import AuthScreenWrapper from "../components/layout/AuthScreenWrapper";
 import AuthButton from "../components/ui/AuthButton";
 import AuthCard from "../components/ui/AuthCard";
@@ -13,11 +14,27 @@ import { spacing } from "../styles/spacing";
 import { typography } from "../styles/typography";
 export default function SignupScreen() {
  const router = useRouter();
+ const [firstName, setFirstName] = useState("");
+ const [lastName, setLastName] = useState("");
  const [email, setEmail] = useState("");
  const [password, setPassword] = useState("");
+ const [confirmPassword, setConfirmPassword] = useState("");
  const handleSignup = async () => {
+   if (password !== confirmPassword) {
+     alert("Passwords do not match");
+     return;
+   }
    try {
-     await createUserWithEmailAndPassword(auth, email, password);
+     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+     const user = userCredential.user;
+     await setDoc(doc(db, "users", user.uid), {
+       email: user.email,
+       displayName: `${firstName} ${lastName}`.trim(),
+       createdAt: serverTimestamp(),
+       quizComplete: false,
+       measurementsComplete: false,
+       onboardingComplete: false,
+     });
      router.push("/quiz");
    } catch (error) {
      console.log(error);
@@ -36,6 +53,8 @@ export default function SignupScreen() {
            label="First Name"
            placeholder="First Name"
            textContentType="givenName"
+           value={firstName}
+           onChangeText={setFirstName}
          />
 </View>
 <View style={styles.formGroup}>
@@ -43,6 +62,8 @@ export default function SignupScreen() {
            label="Last Name"
            placeholder="Last Name"
            textContentType="familyName"
+           value={lastName}
+           onChangeText={setLastName}
          />
 </View>
 <View style={styles.formGroup}>
@@ -68,6 +89,8 @@ export default function SignupScreen() {
            label="Confirm Password"
            placeholder="Confirm Password"
            textContentType="password"
+           value={confirmPassword}
+           onChangeText={setConfirmPassword}
          />
 </View>
 <View style={styles.buttonWrap}>
