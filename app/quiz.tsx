@@ -139,6 +139,21 @@ export default function QuizScreen() {
       subtitle="Let's Set Up Your Style"
       backgroundColor={colors.buttonSecondary}
     >
+      <View style={{ marginBottom: 16 }}>
+        <Text style={{ color: "#6A6A6A", marginBottom: 6 }}>Step 1 of 1</Text>
+        <View
+          style={{ height: 6, backgroundColor: "#E0E0E0", borderRadius: 4 }}
+        >
+          <View
+            style={{
+              height: 6,
+              backgroundColor: "#000",
+              borderRadius: 4,
+              width: "100%",
+            }}
+          />
+        </View>
+      </View>
       <Text style={styles.description}>
         Answer a few quick questions so AURA can personalize your outfits.
       </Text>
@@ -158,6 +173,11 @@ export default function QuizScreen() {
               ))}
             </View>
             <Text style={styles.helper}>Choose as many as you like</Text>
+            {selectedStyles.length === 0 && (
+              <Text style={{ color: "red", fontSize: 12 }}>
+                Please select at least one style
+              </Text>
+            )}
           </View>
 
           <View style={styles.card}>
@@ -191,6 +211,11 @@ export default function QuizScreen() {
             <Text style={styles.helper}>
               This helps AURA generate more accurate outfit suggestions.
             </Text>
+            {selectedOccasions.length === 0 && (
+              <Text style={{ color: "red", fontSize: 12 }}>
+                Please select at least one occasion
+              </Text>
+            )}
           </View>
 
           <View style={styles.card}>
@@ -208,6 +233,11 @@ export default function QuizScreen() {
                 />
               ))}
             </View>
+            {!selectedSeason && (
+              <Text style={{ color: "red", fontSize: 12 }}>
+                Please select a season
+              </Text>
+            )}
           </View>
         </View>
       </View>
