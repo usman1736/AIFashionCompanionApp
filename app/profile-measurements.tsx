@@ -1,7 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation, useRouter } from "expo-router";
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import {
+  ActivityIndicator,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -9,24 +10,13 @@ import {
   useWindowDimensions,
   View,
 } from "react-native";
-import {
-  SafeAreaView,
-  useSafeAreaInsets,
-} from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { auth } from "../firebaseConfig";
+import { getMeasurements } from "../services/userService";
 import ProfileFieldRow from "../components/ui/ProfileFieldRow";
 import { colors } from "../styles/colors";
 import { hitSlop, spacing } from "../styles/spacing";
 import { typography } from "../styles/typography";
-
-const measurementData = [
-  { label: "Height", value: "..." },
-  { label: "Weight", value: "..." },
-  { label: "Chest / Bust", value: "..." },
-  { label: "Waist", value: "..." },
-  { label: "Hips", value: "..." },
-  { label: "Shoulders", value: "..." },
-  { label: "Inseam", value: "..." },
-];
 
 export default function ProfileMeasurementsScreen() {
   const router = useRouter();
@@ -35,86 +25,97 @@ export default function ProfileMeasurementsScreen() {
   const { width } = useWindowDimensions();
 
   const isTablet = width >= 768;
-  const contentWidth = isTablet
-    ? Math.min(width - 64, 900)
-    : Math.min(width - 32, 420);
+  const contentWidth = isTablet ? Math.min(width - 64, 900) : Math.min(width - 32, 420);
   const topSpacing = Math.max(insets.top + spacing.sm, spacing.md);
 
+  const [loading, setLoading] = useState(true);
+  const [measurements, setMeasurements] = useState<Record<string, string>>({});
+
   useEffect(() => {
-    navigation.setOptions({
-      gestureEnabled: true,
-    });
+    navigation.setOptions({ gestureEnabled: true });
   }, [navigation]);
+
+  useEffect(() => {
+    const user = auth.currentUser;
+    if (!user) return;
+    const fetchMeasurements = async () => {
+      try {
+        const data = await getMeasurements(user.uid);
+        if (data) {
+          setMeasurements({
+            Height: data.height || "—",
+            Weight: data.weight || "—",
+            "Chest / Bust": data.chest || "—",
+            Waist: data.waist || "—",
+            Hips: data.hips || "—",
+            Shoulders: data.shoulders || "—",
+            Inseam: data.inseam || "—",
+          });
+        }
+      } catch (e) {
+        console.log("Measurements fetch error:", e);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchMeasurements();
+  }, []);
+
+  const measurementRows = Object.entries(measurements).map(([label, value]) => ({ label, value }));
 
   return (
     <SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]}>
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={[
-          styles.scrollContent,
-          { paddingTop: topSpacing },
-        ]}
+        contentContainerStyle={[styles.scrollContent, { paddingTop: topSpacing }]}
       >
         <View style={[styles.content, { width: contentWidth }]}>
           <View style={styles.headerRow}>
-            <Pressable
-              onPress={() => router.back()}
-              style={styles.backButton}
-              hitSlop={hitSlop}
-            >
-              <Ionicons
-                name="arrow-back"
-                size={24}
-                color={colors.buttonPrimary}
-              />
+            <Pressable onPress={() => router.back()} style={styles.backButton} hitSlop={hitSlop}>
+              <Ionicons name="arrow-back" size={24} color={colors.buttonPrimary} />
             </Pressable>
-
             <Text style={styles.title}>My Measurements</Text>
           </View>
 
           <Text style={styles.subtitle}>
-            These measurements help AURA give more accurate fit and outfit
-            suggestions.
+            These measurements help AURA give more accurate fit and outfit suggestions.
           </Text>
 
           <View style={[styles.layout, isTablet && styles.layoutTablet]}>
-            <View
-              style={[styles.infoColumn, isTablet && styles.infoColumnTablet]}
-            >
+            <View style={[styles.infoColumn, isTablet && styles.infoColumnTablet]}>
               <View style={styles.highlightCard}>
                 <Text style={styles.highlightTitle}>Measurement Status</Text>
                 <Text style={styles.highlightText}>
-                  Your current saved measurements are shown below. You can
-                  review them anytime.
+                  Your current saved measurements are shown below. You can review them anytime.
                 </Text>
               </View>
 
-              <Pressable
-                style={styles.primaryButton}
-                onPress={() => router.push("/measurements")}
-              >
+              <Pressable style={styles.primaryButton} onPress={() => router.push("/measurements")}>
                 <Text style={styles.primaryButtonText}>Edit Measurements</Text>
               </Pressable>
-
-              <Text style={styles.helperText}>
-                Placeholder values are shown for now. These will later come from
-                saved user data.
-              </Text>
             </View>
 
-            <View
-              style={[styles.dataColumn, isTablet && styles.dataColumnTablet]}
-            >
-              <View style={styles.card}>
-                {measurementData.map((item, index) => (
-                  <ProfileFieldRow
-                    key={item.label}
-                    label={item.label}
-                    value={item.value}
-                    showDivider={index !== measurementData.length - 1}
-                  />
-                ))}
-              </View>
+            <View style={[styles.dataColumn, isTablet && styles.dataColumnTablet]}>
+              {loading ? (
+                <View style={styles.loadingWrap}>
+                  <ActivityIndicator size="large" color={colors.buttonPrimary} />
+                </View>
+              ) : measurementRows.length === 0 ? (
+                <View style={styles.emptyWrap}>
+                  <Text style={styles.emptyText}>No measurements saved yet.</Text>
+                </View>
+              ) : (
+                <View style={styles.card}>
+                  {measurementRows.map((item, index) => (
+                    <ProfileFieldRow
+                      key={item.label}
+                      label={item.label}
+                      value={item.value}
+                      showDivider={index !== measurementRows.length - 1}
+                    />
+                  ))}
+                </View>
+              )}
             </View>
           </View>
         </View>
@@ -191,12 +192,6 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     color: colors.mutedText,
   },
-  card: {
-    backgroundColor: colors.white,
-    borderRadius: 16,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.xs,
-  },
   primaryButton: {
     backgroundColor: colors.buttonPrimary,
     borderRadius: 12,
@@ -208,11 +203,26 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     fontSize: 14,
   },
-  helperText: {
-    marginTop: spacing.md,
-    ...typography.caption,
-    lineHeight: 18,
+  card: {
+    backgroundColor: colors.white,
+    borderRadius: 16,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.xs,
+  },
+  loadingWrap: {
+    backgroundColor: colors.white,
+    borderRadius: 16,
+    padding: spacing.xl,
+    alignItems: "center",
+  },
+  emptyWrap: {
+    backgroundColor: colors.white,
+    borderRadius: 16,
+    padding: spacing.xl,
+    alignItems: "center",
+  },
+  emptyText: {
+    ...typography.body,
     color: colors.mutedText,
-    textAlign: "center",
   },
 });

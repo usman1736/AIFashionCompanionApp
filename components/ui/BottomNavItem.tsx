@@ -26,7 +26,7 @@ function BottomNavItemComponent({
       hitSlop={hitSlop}
     >
       <View style={styles.inner}>
-        <Image source={icon} style={styles.icon} resizeMode="contain" />
+        <Image source={icon} style={[styles.icon, { tintColor: active ? colors.buttonPrimary : "#8A8A8A" }]} resizeMode="contain" />
 
         <Text style={[styles.label, active && styles.activeLabel]}>
           {label}
