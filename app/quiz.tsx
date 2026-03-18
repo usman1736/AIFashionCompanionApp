@@ -1,21 +1,48 @@
 import { useNavigation, useRouter } from "expo-router";
+
 import React, { useEffect, useMemo, useState } from "react";
-import { StyleSheet, Text, View, useWindowDimensions } from "react-native";
+
+import {
+  ActivityIndicator,
+  StyleSheet,
+  Text,
+  View,
+  useWindowDimensions,
+} from "react-native";
+
 import AuthScreenWrapper from "../components/layout/AuthScreenWrapper";
+
 import AuthButton from "../components/ui/AuthButton";
+
 import ColorCircle from "../components/ui/ColorCircle";
+
 import OptionChip from "../components/ui/OptionChip";
+
 import SeasonOption from "../components/ui/SeasonOption";
+
 import { colors } from "../styles/colors";
+
 import { spacing } from "../styles/spacing";
+
 import { typography } from "../styles/typography";
+
+// 🔥 FIREBASE
+
+import { doc, getDoc, setDoc } from "firebase/firestore";
+
+import { auth, db } from "../firebaseConfig";
 
 const styleOptions = [
   "Casual",
+
   "Streetwear",
+
   "Business Casual",
+
   "Formal",
+
   "Sporty",
+
   "Minimalist",
 ];
 
@@ -23,33 +50,50 @@ const occasionOptions = ["Work", "Gym", "Casual outings"];
 
 const colorOptions = [
   "#FF3B30",
+
   "#F6B93B",
+
   "#6BCB77",
+
   "#4D96FF",
+
   "#B983FF",
+
   "#FF75A0",
+
   "#E1E100",
+
   "#000000",
 ];
 
 const seasonOptions = [
   { label: "Spring", icon: "🌸" },
+
   { label: "Summer", icon: "☀️" },
+
   { label: "Fall", icon: "🍂" },
+
   { label: "Winter", icon: "❄️" },
 ];
 
 export default function QuizScreen() {
   const navigation = useNavigation();
+
   const router = useRouter();
+
   const { width } = useWindowDimensions();
 
   const isTablet = width >= 768;
 
   const [selectedStyles, setSelectedStyles] = useState<string[]>([]);
+
   const [selectedColors, setSelectedColors] = useState<string[]>([]);
+
   const [selectedOccasions, setSelectedOccasions] = useState<string[]>([]);
+
   const [selectedSeason, setSelectedSeason] = useState<string | null>(null);
+
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     navigation.setOptions({
@@ -57,8 +101,31 @@ export default function QuizScreen() {
     });
   }, [navigation]);
 
+  // ✅ SKIP QUIZ IF ALREADY DONE
+
+  useEffect(() => {
+    const checkQuiz = async () => {
+      const user = auth.currentUser;
+
+      if (!user) return;
+
+      try {
+        const docSnap = await getDoc(doc(db, "users", user.uid));
+
+        if (docSnap.exists() && docSnap.data().quizComplete) {
+          router.replace("/home");
+        }
+      } catch (e) {
+        console.log("Check quiz error:", e);
+      }
+    };
+
+    checkQuiz();
+  }, []);
+
   const toggleMultiSelect = (
     value: string,
+
     setter: React.Dispatch<React.SetStateAction<string[]>>,
   ) => {
     setter((prev) =>
@@ -77,6 +144,62 @@ export default function QuizScreen() {
     );
   }, [selectedStyles, selectedColors, selectedOccasions, selectedSeason]);
 
+  // SAVE QUIZ
+
+  const handleContinue = async () => {
+    const user = auth.currentUser;
+
+    if (!user) {
+      alert("User not logged in");
+
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      await setDoc(
+        doc(db, "users", user.uid),
+
+        {
+          email: user.email,
+
+          quizComplete: true,
+
+          quizAnswers: {
+            styles: selectedStyles,
+
+            colors: selectedColors,
+
+            occasions: selectedOccasions,
+
+            season: selectedSeason,
+          },
+        },
+
+        { merge: true },
+      );
+
+      router.replace("/measurement-choice");
+    } catch (e) {
+      console.log("Save error:", e);
+
+      alert("Failed to save quiz. Try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  //  LOADING SCREEN
+
+  if (loading) {
+    return (
+      <View style={styles.centered}>
+        <ActivityIndicator size="large" color={colors.buttonPrimary} />
+      </View>
+    );
+  }
+
   return (
     <AuthScreenWrapper
       subtitle="Let's Set Up Your Style"
@@ -85,7 +208,6 @@ export default function QuizScreen() {
       <Text style={styles.description}>
         Answer a few quick questions so AURA can personalize your outfits.
       </Text>
-
       <View style={[styles.layout, isTablet && styles.layoutTablet]}>
         <View style={styles.column}>
           <View style={styles.card}>
@@ -102,7 +224,6 @@ export default function QuizScreen() {
             </View>
             <Text style={styles.helper}>Choose as many as you like</Text>
           </View>
-
           <View style={styles.card}>
             <Text style={styles.title}>What colors do you like wearing?</Text>
             <View style={styles.colorRow}>
@@ -117,7 +238,6 @@ export default function QuizScreen() {
             </View>
           </View>
         </View>
-
         <View style={styles.column}>
           <View style={styles.card}>
             <Text style={styles.title}>What do you dress for most often?</Text>
@@ -135,7 +255,6 @@ export default function QuizScreen() {
               This helps AURA generate more accurate outfit suggestions.
             </Text>
           </View>
-
           <View style={styles.card}>
             <Text style={styles.title}>
               Which season best matches your wardrobe?
@@ -154,18 +273,11 @@ export default function QuizScreen() {
           </View>
         </View>
       </View>
-
       <View style={styles.buttonWrap}>
         <AuthButton
           title="Continue"
           disabled={!canContinue}
-          onPress={() => router.push("/measurement-choice")}
-        />
-        <AuthButton
-          title="[DEV] Go to Home"
-          variant="secondary"
-          onPress={() => router.push("/home")}
-          style={{ marginTop: spacing.lg }}
+          onPress={handleContinue}
         />
       </View>
     </AuthScreenWrapper>
@@ -173,58 +285,93 @@ export default function QuizScreen() {
 }
 
 const styles = StyleSheet.create({
+  centered: {
+    flex: 1,
+
+    justifyContent: "center",
+
+    alignItems: "center",
+  },
+
   description: {
     ...typography.body,
+
     color: "#6A6A6A",
+
     marginBottom: spacing.lg,
   },
+
   layout: {
     gap: spacing.md,
   },
+
   layoutTablet: {
     flexDirection: "row",
+
     alignItems: "flex-start",
+
     gap: spacing.lg,
   },
+
   column: {
     flex: 1,
+
     gap: spacing.md,
   },
+
   card: {
     backgroundColor: colors.white,
+
     borderRadius: 14,
+
     padding: spacing.lg,
   },
+
   title: {
     ...typography.bodyMedium,
+
     fontWeight: "600",
+
     marginBottom: spacing.sm,
+
     color: colors.darkText,
   },
+
   helper: {
     ...typography.caption,
+
     color: "#7A7A7A",
+
     marginTop: spacing.sm,
   },
+
   colorRow: {
     flexDirection: "row",
-    alignItems: "center",
+
     flexWrap: "wrap",
+
     gap: spacing.sm,
   },
+
   rowWrap: {
     flexDirection: "row",
+
     flexWrap: "wrap",
+
     gap: spacing.sm,
   },
+
   seasonRow: {
     flexDirection: "row",
+
     flexWrap: "wrap",
+
     gap: spacing.sm,
-    justifyContent: "flex-start",
   },
+
   buttonWrap: {
     marginTop: spacing.lg,
+
     marginBottom: spacing.md,
   },
 });
