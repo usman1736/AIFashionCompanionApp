@@ -28,35 +28,35 @@ function AppBottomNavComponent() {
         label="Home"
         icon={require("../../assets/icons/home-icon.png")}
         active={pathname === "/home"}
-        onPress={() => router.replace("/home")}
+        onPress={() => { if (pathname !== "/home") router.replace("/home"); }}
       />
 
       <BottomNavItem
         label="Closet"
         icon={require("../../assets/icons/closet-icon.png")}
         active={pathname === "/closet"}
-        onPress={() => router.replace("/closet")}
+        onPress={() => { if (pathname !== "/closet") router.replace("/closet"); }}
       />
 
       <BottomNavItem
         label="AI"
         icon={require("../../assets/icons/ai-icon.png")}
         active={pathname === "/ai"}
-        onPress={() => router.replace("/ai")}
+        onPress={() => { if (pathname !== "/ai") router.replace("/ai"); }}
       />
 
       <BottomNavItem
         label="Shop"
         icon={require("../../assets/icons/shop-icon.png")}
         active={pathname === "/shop"}
-        onPress={() => router.replace("/shop")}
+        onPress={() => { if (pathname !== "/shop") router.replace("/shop"); }}
       />
 
       <BottomNavItem
         label="Profile"
         icon={require("../../assets/icons/profile-icon.png")}
         active={pathname === "/profile"}
-        onPress={() => router.replace("/profile")}
+        onPress={() => { if (pathname !== "/profile") router.replace("/profile"); }}
       />
     </View>
   );
