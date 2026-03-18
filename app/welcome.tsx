@@ -58,12 +58,6 @@ export default function WelcomeScreen() {
               onPress={() => router.push("/signup")}
               style={styles.secondButton}
             />
-            <AuthButton
-              title="[DEV] Go to Home"
-              variant="secondary"
-              onPress={() => router.push("/home")}
-              style={styles.secondButton}
-            />
           </View>
         </View>
       </View>

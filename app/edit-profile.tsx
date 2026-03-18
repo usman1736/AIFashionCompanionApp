@@ -16,6 +16,8 @@ import {
   SafeAreaView,
   useSafeAreaInsets,
 } from "react-native-safe-area-context";
+import { auth } from "../firebaseConfig";
+import { getUserProfile, updateUserProfile } from "../services/userService";
 import { colors } from "../styles/colors";
 import { hitSlop, spacing } from "../styles/spacing";
 import { typography } from "../styles/typography";
@@ -38,10 +40,33 @@ export default function EditProfileScreen() {
   const [password, setPassword] = useState("");
 
   useEffect(() => {
-    navigation.setOptions({
-      gestureEnabled: true,
-    });
+    navigation.setOptions({ gestureEnabled: true });
   }, [navigation]);
+
+  useEffect(() => {
+    const user = auth.currentUser;
+    if (!user) return;
+    setEmail(user.email || "");
+    const loadProfile = async () => {
+      const profile = await getUserProfile(user.uid);
+      if (profile) {
+        setFullName(profile.displayName || "");
+        setPhone(profile.phone || "");
+      }
+    };
+    loadProfile();
+  }, []);
+
+  const handleSave = async () => {
+    const user = auth.currentUser;
+    if (!user) return;
+    try {
+      await updateUserProfile(user.uid, { displayName: fullName, phone });
+      router.back();
+    } catch (e) {
+      alert("Failed to save changes");
+    }
+  };
 
   return (
     <SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]}>
@@ -150,7 +175,7 @@ export default function EditProfileScreen() {
                 <Text style={styles.secondaryButtonText}>Cancel</Text>
               </Pressable>
 
-              <Pressable style={styles.primaryButton}>
+              <Pressable style={styles.primaryButton} onPress={handleSave}>
                 <Text style={styles.primaryButtonText}>Save Changes</Text>
               </Pressable>
             </View>

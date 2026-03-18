@@ -1,8 +1,8 @@
 import { useEffect } from "react";
 import { useRouter } from "expo-router";
 import { onAuthStateChanged } from "firebase/auth";
-import { doc, getDoc } from "firebase/firestore";
-import { auth, db } from "../firebaseConfig";
+import { auth } from "../firebaseConfig";
+import { getUserProfile } from "../services/userService";
 
 export default function Index() {
   const router = useRouter();
@@ -15,21 +15,14 @@ export default function Index() {
       }
 
       try {
-        const userDoc = await getDoc(doc(db, "users", user.uid));
+        const profile = await getUserProfile(user.uid);
 
-        if (!userDoc.exists()) {
+        if (!profile || !profile.quizComplete) {
           router.replace("/quiz");
           return;
         }
 
-        const data = userDoc.data();
-
-        if (!data.quizComplete) {
-          router.replace("/quiz");
-          return;
-        }
-
-        if (!data.measurementsComplete) {
+        if (!profile.measurementsComplete) {
           router.replace("/measurement-choice");
           return;
         }
