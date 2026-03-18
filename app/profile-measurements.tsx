@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useNavigation, useRouter } from "expo-router";
-import React, { useEffect, useState } from "react";
+import { useFocusEffect, useNavigation, useRouter } from "expo-router";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   Pressable,
   ScrollView,
@@ -61,9 +61,13 @@ export default function ProfileMeasurementsScreen() {
     }
   };
 
-  useEffect(() => {
-    fetchMeasurements();
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      setLoading(true);
+      setError(false);
+      fetchMeasurements();
+    }, [])
+  );
 
   const measurementRows = Object.entries(measurements).map(([label, value]) => ({ label, value }));
 
@@ -94,7 +98,7 @@ export default function ProfileMeasurementsScreen() {
                 </Text>
               </View>
 
-              <Pressable style={styles.primaryButton} onPress={() => router.push("/measurements")}>
+              <Pressable style={styles.primaryButton} onPress={() => router.push("/measurements?from=profile")}>
                 <Text style={styles.primaryButtonText}>Edit Measurements</Text>
               </Pressable>
             </View>

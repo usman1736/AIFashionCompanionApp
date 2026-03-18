@@ -1,8 +1,8 @@
-import { useNavigation, useRouter } from "expo-router";
+import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { auth } from "../firebaseConfig";
-import { saveMeasurements } from "../services/userService";
+import { getMeasurements, saveMeasurements } from "../services/userService";
 import AuthScreenWrapper from "../components/layout/AuthScreenWrapper";
 import AuthButton from "../components/ui/AuthButton";
 import AuthInput from "../components/ui/AuthInput";
@@ -13,6 +13,7 @@ import { typography } from "../styles/typography";
 export default function MeasurementsScreen() {
   const router = useRouter();
   const navigation = useNavigation();
+  const { from } = useLocalSearchParams<{ from?: string }>();
 
   const [height, setHeight] = useState("");
   const [weight, setWeight] = useState("");
@@ -26,15 +27,37 @@ export default function MeasurementsScreen() {
     navigation.setOptions({ gestureEnabled: false });
   }, [navigation]);
 
+  useEffect(() => {
+    const user = auth.currentUser;
+    if (!user) return;
+    const loadExisting = async () => {
+      const data = await getMeasurements(user.uid);
+      if (data) {
+        setHeight(data.height || "");
+        setWeight(data.weight || "");
+        setChest(data.chest || "");
+        setWaist(data.waist || "");
+        setHips(data.hips || "");
+        setShoulders(data.shoulders || "");
+        setInseam(data.inseam || "");
+      }
+    };
+    loadExisting();
+  }, []);
+
   const handleSave = async () => {
     const user = auth.currentUser;
     if (!user) return;
     try {
       await saveMeasurements(user.uid, { height, weight, chest, waist, hips, shoulders, inseam });
-      router.replace("/home");
-    } catch (e) {
+      if (from === "profile") {
+        router.back();
+      } else {
+        router.replace("/home");
+      }
+    } catch (e: any) {
       console.log("Save error:", e);
-      alert("Failed to save measurements");
+      alert(e?.message || "Failed to save measurements");
     }
   };
 

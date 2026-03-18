@@ -63,8 +63,8 @@ export default function EditProfileScreen() {
     try {
       await updateUserProfile(user.uid, { displayName: fullName, phone });
       router.back();
-    } catch (e) {
-      alert("Failed to save changes");
+    } catch (e: any) {
+      alert(e?.message || "Failed to save changes");
     }
   };
 
