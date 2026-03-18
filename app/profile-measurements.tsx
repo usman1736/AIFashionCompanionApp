@@ -2,7 +2,6 @@ import { Ionicons } from "@expo/vector-icons";
 import { useNavigation, useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
-  ActivityIndicator,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -10,9 +9,12 @@ import {
   useWindowDimensions,
   View,
 } from "react-native";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { auth } from "../firebaseConfig";
 import { getMeasurements } from "../services/userService";
+import EmptyState from "../components/states/EmptyState";
+import ErrorState from "../components/states/ErrorState";
+import Loading from "../components/states/Loading";
 import ProfileFieldRow from "../components/ui/ProfileFieldRow";
 import { colors } from "../styles/colors";
 import { hitSlop, spacing } from "../styles/spacing";
@@ -21,43 +23,45 @@ import { typography } from "../styles/typography";
 export default function ProfileMeasurementsScreen() {
   const router = useRouter();
   const navigation = useNavigation();
-  const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
 
   const isTablet = width >= 768;
   const contentWidth = isTablet ? Math.min(width - 64, 900) : Math.min(width - 32, 420);
-  const topSpacing = Math.max(insets.top + spacing.sm, spacing.md);
+  const topSpacing = spacing.md;
 
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
   const [measurements, setMeasurements] = useState<Record<string, string>>({});
 
   useEffect(() => {
     navigation.setOptions({ gestureEnabled: true });
   }, [navigation]);
 
-  useEffect(() => {
+  const fetchMeasurements = async () => {
     const user = auth.currentUser;
     if (!user) return;
-    const fetchMeasurements = async () => {
-      try {
-        const data = await getMeasurements(user.uid);
-        if (data) {
-          setMeasurements({
-            Height: data.height || "—",
-            Weight: data.weight || "—",
-            "Chest / Bust": data.chest || "—",
-            Waist: data.waist || "—",
-            Hips: data.hips || "—",
-            Shoulders: data.shoulders || "—",
-            Inseam: data.inseam || "—",
-          });
-        }
-      } catch (e) {
-        console.log("Measurements fetch error:", e);
-      } finally {
-        setLoading(false);
+    try {
+      const data = await getMeasurements(user.uid);
+      if (data) {
+        setMeasurements({
+          Height: data.height || "—",
+          Weight: data.weight || "—",
+          "Chest / Bust": data.chest || "—",
+          Waist: data.waist || "—",
+          Hips: data.hips || "—",
+          Shoulders: data.shoulders || "—",
+          Inseam: data.inseam || "—",
+        });
       }
-    };
+    } catch (e) {
+      console.log("Measurements fetch error:", e);
+      setError(true);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchMeasurements();
   }, []);
 
@@ -97,13 +101,11 @@ export default function ProfileMeasurementsScreen() {
 
             <View style={[styles.dataColumn, isTablet && styles.dataColumnTablet]}>
               {loading ? (
-                <View style={styles.loadingWrap}>
-                  <ActivityIndicator size="large" color={colors.buttonPrimary} />
-                </View>
+                <Loading />
+              ) : error ? (
+                <ErrorState message="Failed to load measurements." onRetry={() => { setError(false); setLoading(true); fetchMeasurements(); }} />
               ) : measurementRows.length === 0 ? (
-                <View style={styles.emptyWrap}>
-                  <Text style={styles.emptyText}>No measurements saved yet.</Text>
-                </View>
+                <EmptyState message="No measurements saved yet." />
               ) : (
                 <View style={styles.card}>
                   {measurementRows.map((item, index) => (
@@ -208,21 +210,5 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.xs,
-  },
-  loadingWrap: {
-    backgroundColor: colors.white,
-    borderRadius: 16,
-    padding: spacing.xl,
-    alignItems: "center",
-  },
-  emptyWrap: {
-    backgroundColor: colors.white,
-    borderRadius: 16,
-    padding: spacing.xl,
-    alignItems: "center",
-  },
-  emptyText: {
-    ...typography.body,
-    color: colors.mutedText,
   },
 });
