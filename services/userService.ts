@@ -1,4 +1,6 @@
-import { doc, getDoc, setDoc, updateDoc, serverTimestamp } from "firebase/firestore";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as Network from "expo-network";
+import { doc, getDoc, serverTimestamp, setDoc, updateDoc } from "firebase/firestore";
 import { db } from "../firebaseConfig";
 
 export type UserProfile = {
@@ -22,23 +24,47 @@ export type Measurements = {
   updatedAt?: any;
 };
 
+const isOnline = async (): Promise<boolean> => {
+  const state = await Network.getNetworkStateAsync();
+  return state.isConnected === true && state.isInternetReachable === true;
+};
+
 export const getUserProfile = async (uid: string): Promise<UserProfile | null> => {
-  const userDoc = await getDoc(doc(db, "users", uid));
-  if (userDoc.exists()) {
-    return userDoc.data() as UserProfile;
+  const cacheKey = `cache_profile_${uid}`;
+  try {
+    const userDoc = await getDoc(doc(db, "users", uid));
+    if (userDoc.exists()) {
+      const data = userDoc.data() as UserProfile;
+      await AsyncStorage.setItem(cacheKey, JSON.stringify(data));
+      return data;
+    }
+    return null;
+  } catch {
+    const cached = await AsyncStorage.getItem(cacheKey);
+    return cached ? (JSON.parse(cached) as UserProfile) : null;
   }
-  return null;
 };
 
 export const getMeasurements = async (uid: string): Promise<Measurements | null> => {
-  const userDoc = await getDoc(doc(db, "users", uid));
-  if (userDoc.exists() && userDoc.data().measurements) {
-    return userDoc.data().measurements as Measurements;
+  const cacheKey = `cache_measurements_${uid}`;
+  try {
+    const userDoc = await getDoc(doc(db, "users", uid));
+    if (userDoc.exists() && userDoc.data().measurements) {
+      const data = userDoc.data().measurements as Measurements;
+      await AsyncStorage.setItem(cacheKey, JSON.stringify(data));
+      return data;
+    }
+    return null;
+  } catch {
+    const cached = await AsyncStorage.getItem(cacheKey);
+    return cached ? (JSON.parse(cached) as Measurements) : null;
   }
-  return null;
 };
 
 export const saveMeasurements = async (uid: string, measurements: Omit<Measurements, "updatedAt">) => {
+  if (!(await isOnline())) {
+    throw new Error("You are offline. Please connect to save your measurements.");
+  }
   await setDoc(
     doc(db, "users", uid),
     {
@@ -54,9 +80,10 @@ export const saveMeasurements = async (uid: string, measurements: Omit<Measureme
 };
 
 export const updateUserProfile = async (uid: string, data: { displayName?: string; phone?: string }) => {
-  await updateDoc(doc(db, "users", uid), {
-    ...data,
-  });
+  if (!(await isOnline())) {
+    throw new Error("You are offline. Please connect to update your profile.");
+  }
+  await updateDoc(doc(db, "users", uid), { ...data });
 };
 
 export const createUserDocument = async (uid: string, email: string, displayName: string) => {

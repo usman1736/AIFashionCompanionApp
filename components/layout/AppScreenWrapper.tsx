@@ -41,7 +41,7 @@ export default function AppScreenWrapper({
   return (
     <SafeAreaView
       style={[styles.safeArea, { backgroundColor }]}
-      edges={["top", "left", "right", "bottom"]}
+      edges={["top", "left", "right"]}
     >
       <View style={[styles.container, { backgroundColor }]}>
         <ScrollView
