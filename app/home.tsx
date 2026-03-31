@@ -8,10 +8,10 @@ import {
   useWindowDimensions,
 } from "react-native";
 import AppScreenWrapper from "../components/layout/AppScreenWrapper";
-import AuthButton from "../components/ui/AuthButton";
-import ProductThumbCard from "../components/ui/ProductThumbCard";
 import ErrorState from "../components/states/ErrorState";
 import Loading from "../components/states/Loading";
+import AuthButton from "../components/ui/AuthButton";
+import ProductThumbCard from "../components/ui/ProductThumbCard";
 import { auth } from "../firebaseConfig";
 import { getUserProfile } from "../services/userService";
 import { colors } from "../styles/colors";
@@ -87,7 +87,10 @@ export default function HomeScreen() {
 
   if (loading) return <Loading fullScreen />;
 
-  if (error) return <ErrorState message="Something went wrong. Please restart the app." />;
+  if (error)
+    return (
+      <ErrorState message="Something went wrong. Please restart the app." />
+    );
 
   return (
     <AppScreenWrapper backgroundColor={colors.offWhite}>
