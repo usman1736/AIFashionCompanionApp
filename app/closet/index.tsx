@@ -31,7 +31,7 @@ export default function ClosetScreen() {
           id: doc.id,
           ...doc.data(),
         }))
-        .filter((item: any) => item.userId === user?.uid); // 🔥 KEY FIX
+        .filter((item: any) => item.userId === user?.uid); //  KEY FIX
 
       setItems(userItems);
     } catch (error) {
@@ -47,7 +47,7 @@ export default function ClosetScreen() {
 
   // 🔙 BACK
   const handleBack = () => {
-    router.replace("/home"); // 🔥 ALWAYS go home
+    router.replace("/home"); //  ALWAYS go home
   };
 
   // 🗑 DELETE
@@ -58,7 +58,7 @@ export default function ClosetScreen() {
         text: "Delete",
         style: "destructive",
         onPress: async () => {
-          await deleteDoc(doc(db, "closetItems", id)); // 🔥 direct delete
+          await deleteDoc(doc(db, "closetItems", id)); //  direct delete
           loadItems();
         },
       },
@@ -131,7 +131,7 @@ export default function ClosetScreen() {
               style={styles.card}
               onLongPress={() => handleDelete(item.id)}
             >
-              {/* ✅ IMAGE FIX */}
+              {/*  IMAGE FIX */}
               {item.image ? (
                 <Image source={{ uri: item.image }} style={styles.image} />
               ) : (
