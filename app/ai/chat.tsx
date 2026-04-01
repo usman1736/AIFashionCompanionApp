@@ -1,4 +1,4 @@
-import * as FileSystem from "expo-file-system/legacy";
+import * as ImageManipulator from "expo-image-manipulator";
 import * as ImagePicker from "expo-image-picker";
 import * as Location from "expo-location";
 import { useLocalSearchParams } from "expo-router";
@@ -87,6 +87,11 @@ type GreetingContext = {
   };
 };
 
+type PreparedImagePayload = {
+  imageBase64: string;
+  imageMimeType: string;
+};
+
 function getInitialPrompt(mode?: string) {
   if (mode === "outfit") {
     return "Say hello and ask what kind of outfit the user wants today.";
@@ -143,25 +148,24 @@ function getErrorMessage(error: unknown) {
   return "Something went wrong.";
 }
 
-function getMimeTypeFromUri(uri: string): string {
-  const lower = uri.toLowerCase();
+async function prepareImageForAI(uri: string): Promise<PreparedImagePayload> {
+  const manipulated = await ImageManipulator.manipulateAsync(
+    uri,
+    [{ resize: { width: 1280 } }],
+    {
+      compress: 0.65,
+      format: ImageManipulator.SaveFormat.JPEG,
+      base64: true,
+    },
+  );
 
-  if (lower.endsWith(".png")) return "image/png";
-  if (lower.endsWith(".webp")) return "image/webp";
-  if (lower.endsWith(".heic")) return "image/heic";
-  if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) return "image/jpeg";
-
-  return "image/jpeg";
-}
-
-async function readImageAsBase64(uri: string) {
-  const base64 = await FileSystem.readAsStringAsync(uri, {
-    encoding: FileSystem.EncodingType.Base64,
-  });
+  if (!manipulated.base64) {
+    throw new Error("Could not prepare the image.");
+  }
 
   return {
-    imageBase64: base64,
-    imageMimeType: getMimeTypeFromUri(uri),
+    imageBase64: manipulated.base64,
+    imageMimeType: "image/jpeg",
   };
 }
 
@@ -434,7 +438,9 @@ export default function AIChatScreen() {
     const trimmed = input.trim();
     const hasDraftAttachment = Boolean(pendingImageUri);
 
-    if ((!trimmed && !hasDraftAttachment) || !user || sending) return;
+    if ((!trimmed && !hasDraftAttachment) || !user || sending) {
+      return;
+    }
 
     const now = Date.now();
 
@@ -458,41 +464,40 @@ export default function AIChatScreen() {
       ...(trimmed ? [userMessage] : []),
     ]);
 
+    setMessages((prev) => [...prev, userMessage]);
     setInput("");
     setSending(true);
-    setMessages((prev) => [...prev, userMessage]);
+
+    const imageUriForRequest = pendingImageUri;
+    clearDraftAttachments();
 
     try {
-      let imagePayload: Pick<
-        AuraStylistRequest,
-        "imageBase64" | "imageMimeType"
-      > = {};
+      let preparedImage: PreparedImagePayload | undefined;
 
-      if (pendingImageUri) {
-        imagePayload = await readImageAsBase64(pendingImageUri);
+      if (imageUriForRequest) {
+        preparedImage = await prepareImageForAI(imageUriForRequest);
       }
 
-      clearDraftAttachments();
+      const greetingContext = await getGreetingContext();
 
       const response = await auraStylist({
         message: requestText,
         history: historyForRequest,
-        ...imagePayload,
+        location: greetingContext.location,
+        weather: greetingContext.weather,
+        imageBase64: preparedImage?.imageBase64,
+        imageMimeType: preparedImage?.imageMimeType,
       });
 
-      const assistantMessages = appendAuraResponse(response.data, now + 1);
+      const assistantMessages = appendAuraResponse(response.data, Date.now());
+
       setMessages((prev) => [...prev, ...assistantMessages]);
     } catch (error) {
-      clearDraftAttachments();
-
-      const message = getErrorMessage(error);
-
       setMessages((prev) => [
         ...prev,
         createTextMessage(
           "assistant",
-          `I hit a problem while generating that response. ${message}`,
-          now + 1,
+          `Sorry — I couldn’t send that right now. ${getErrorMessage(error)}`,
         ),
       ]);
     } finally {
@@ -501,49 +506,62 @@ export default function AIChatScreen() {
   };
 
   const handleVoicePress = () => {
-    Alert.alert(
-      "Voice input unavailable",
-      "Mic-to-text is not supported in Expo Go on iPhone. The rest of the AI chat and image attachment flow will still work.",
-    );
+    Alert.alert("Not ready yet", "Voice input is not connected yet.");
+  };
+
+  const pickImage = async (
+    source: "camera" | "library",
+  ): Promise<string | null> => {
+    const permissionResponse =
+      source === "camera"
+        ? await ImagePicker.requestCameraPermissionsAsync()
+        : await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+    if (!permissionResponse.granted) {
+      Alert.alert(
+        "Permission required",
+        source === "camera"
+          ? "Camera permission is needed to take a photo."
+          : "Photo library permission is needed to upload an image.",
+      );
+      return null;
+    }
+
+    const result =
+      source === "camera"
+        ? await ImagePicker.launchCameraAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            quality: 1,
+            allowsEditing: false,
+          })
+        : await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            quality: 1,
+            allowsEditing: false,
+          });
+
+    if (result.canceled || !result.assets?.[0]?.uri) {
+      return null;
+    }
+
+    return result.assets[0].uri;
   };
 
   const handleCameraPress = async () => {
-    const permission = await ImagePicker.requestCameraPermissionsAsync();
+    const uri = await pickImage("camera");
 
-    if (!permission.granted) {
-      Alert.alert("Permission needed", "Camera permission is required.");
-      return;
-    }
+    if (!uri) return;
 
-    const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ["images"],
-      quality: 0.8,
-    });
-
-    if (result.canceled || !result.assets?.length) return;
-
-    const img = result.assets[0];
-    setPendingImageUri(img.uri);
+    setPendingImageUri(uri);
     setPendingImageLabel("Camera image attached");
   };
 
   const handleUploadPress = async () => {
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    const uri = await pickImage("library");
 
-    if (!permission.granted) {
-      Alert.alert("Permission needed", "Photo library permission is required.");
-      return;
-    }
+    if (!uri) return;
 
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ["images"],
-      quality: 0.8,
-    });
-
-    if (result.canceled || !result.assets?.length) return;
-
-    const img = result.assets[0];
-    setPendingImageUri(img.uri);
+    setPendingImageUri(uri);
     setPendingImageLabel("Image attached");
   };
 

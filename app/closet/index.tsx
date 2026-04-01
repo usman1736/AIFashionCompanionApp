@@ -19,22 +19,58 @@ import {
   query,
   where,
 } from "firebase/firestore";
+import { deleteObject, getStorage, ref as storageRef } from "firebase/storage";
 import { db } from "../../firebaseConfig";
 
 type ClosetItem = {
   id: string;
   userId?: string;
   image?: string;
+  imageUrl?: string;
+  imagePath?: string;
   category?: string;
   color?: string;
   occasion?: string;
+  occasions?: string[];
   season?: string;
+  seasons?: string[];
   brand?: string;
 };
 
+const CATEGORY_TABS = [
+  "All",
+  "Tops",
+  "Bottoms",
+  "Dresses",
+  "Shoes",
+  "Outerwear",
+  "Accessories",
+] as const;
+
+function getDisplayImage(item: ClosetItem) {
+  return item.imageUrl || item.image || "";
+}
+
+function getDisplayOccasion(item: ClosetItem) {
+  if (Array.isArray(item.occasions) && item.occasions.length > 0) {
+    return item.occasions.join(", ");
+  }
+
+  return item.occasion || "—";
+}
+
+function getDisplaySeason(item: ClosetItem) {
+  if (Array.isArray(item.seasons) && item.seasons.length > 0) {
+    return item.seasons.join(", ");
+  }
+
+  return item.season || "—";
+}
+
 export default function ClosetScreen() {
   const [items, setItems] = useState<ClosetItem[]>([]);
-  const [selectedCategory, setSelectedCategory] = useState("All");
+  const [selectedCategory, setSelectedCategory] =
+    useState<(typeof CATEGORY_TABS)[number]>("All");
   const router = useRouter();
 
   const loadItems = async () => {
@@ -75,7 +111,7 @@ export default function ClosetScreen() {
     router.replace("/home");
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = (item: ClosetItem) => {
     Alert.alert("Delete Item", "Are you sure you want to delete this item?", [
       { text: "Cancel", style: "cancel" },
       {
@@ -83,7 +119,17 @@ export default function ClosetScreen() {
         style: "destructive",
         onPress: async () => {
           try {
-            await deleteDoc(doc(db, "closetItems", id));
+            await deleteDoc(doc(db, "closetItems", item.id));
+
+            if (item.imagePath) {
+              try {
+                const storage = getStorage();
+                await deleteObject(storageRef(storage, item.imagePath));
+              } catch (storageError) {
+                console.log("STORAGE DELETE WARNING:", storageError);
+              }
+            }
+
             loadItems();
           } catch (error) {
             console.log("DELETE ERROR:", error);
@@ -101,6 +147,7 @@ export default function ClosetScreen() {
 
   const getSafeColor = (color?: string) => {
     if (!color) return "#D9D9D9";
+
     return color.toLowerCase();
   };
 
@@ -114,7 +161,7 @@ export default function ClosetScreen() {
       <Text style={styles.subtitle}>Manage your wardrobe</Text>
 
       <View style={styles.tabsRow}>
-        {["All", "Tops", "Bottoms", "Shoes"].map((cat) => (
+        {CATEGORY_TABS.map((cat) => (
           <Pressable
             key={cat}
             onPress={() => setSelectedCategory(cat)}
@@ -156,40 +203,50 @@ export default function ClosetScreen() {
           columnWrapperStyle={styles.columnWrapper}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
-          renderItem={({ item }) => (
-            <Pressable
-              style={styles.card}
-              onLongPress={() => handleDelete(item.id)}
-            >
-              {item.image ? (
-                <Image source={{ uri: item.image }} style={styles.image} />
-              ) : (
-                <View style={styles.imagePlaceholder} />
-              )}
+          renderItem={({ item }) => {
+            const imageUri = getDisplayImage(item);
 
-              <Text style={styles.category}>{item.category || "Item"}</Text>
+            return (
+              <Pressable
+                style={styles.card}
+                onLongPress={() => handleDelete(item)}
+              >
+                {imageUri ? (
+                  <Image source={{ uri: imageUri }} style={styles.image} />
+                ) : (
+                  <View style={styles.imagePlaceholder} />
+                )}
 
-              <View style={styles.colorRow}>
-                <View
-                  style={[
-                    styles.colorDot,
-                    { backgroundColor: getSafeColor(item.color) },
-                  ]}
-                />
-                <Text style={styles.colorText}>{item.color || "No color"}</Text>
-              </View>
+                <Text style={styles.category}>{item.category || "Item"}</Text>
 
-              <Text style={styles.info}>Occasion: {item.occasion || "—"}</Text>
+                <View style={styles.colorRow}>
+                  <View
+                    style={[
+                      styles.colorDot,
+                      { backgroundColor: getSafeColor(item.color) },
+                    ]}
+                  />
+                  <Text style={styles.colorText}>
+                    {item.color || "No color"}
+                  </Text>
+                </View>
 
-              <Text style={styles.info}>Season: {item.season || "—"}</Text>
+                <Text style={styles.info}>
+                  Occasion: {getDisplayOccasion(item)}
+                </Text>
 
-              {item.brand ? (
-                <Text style={styles.info}>Brand: {item.brand}</Text>
-              ) : null}
+                <Text style={styles.info}>
+                  Season: {getDisplaySeason(item)}
+                </Text>
 
-              <Text style={styles.hint}>Hold to delete</Text>
-            </Pressable>
-          )}
+                {item.brand ? (
+                  <Text style={styles.info}>Brand: {item.brand}</Text>
+                ) : null}
+
+                <Text style={styles.hint}>Hold to delete</Text>
+              </Pressable>
+            );
+          }}
         />
       )}
     </View>
@@ -203,168 +260,138 @@ const styles = StyleSheet.create({
     paddingTop: 60,
     backgroundColor: "#F6F4F2",
   },
-
   backBtn: {
     marginBottom: 10,
     alignSelf: "flex-start",
   },
-
   backText: {
     fontSize: 16,
     color: "#8B1E1E",
     fontWeight: "600",
   },
-
   title: {
     fontSize: 32,
     fontWeight: "700",
     letterSpacing: 0.5,
   },
-
   subtitle: {
     color: "#777",
     marginBottom: 20,
     fontSize: 14,
   },
-
   tabsRow: {
     flexDirection: "row",
     gap: 10,
     marginBottom: 20,
     flexWrap: "wrap",
   },
-
   tab: {
-    paddingVertical: 10,
-    paddingHorizontal: 18,
-    backgroundColor: "#EDEBE9",
-    borderRadius: 25,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 999,
+    backgroundColor: "#e8e3de",
   },
-
   tabActive: {
     backgroundColor: "#8B1E1E",
   },
-
   tabText: {
-    color: "#444",
-    fontSize: 13,
+    color: "#333",
+    fontWeight: "500",
   },
-
   tabTextActive: {
     color: "#fff",
-    fontWeight: "600",
   },
-
   addButton: {
     backgroundColor: "#8B1E1E",
-    paddingVertical: 16,
-    borderRadius: 18,
+    paddingVertical: 14,
+    borderRadius: 16,
     alignItems: "center",
     marginBottom: 12,
-    shadowColor: "#8B1E1E",
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 4,
   },
-
   addButtonText: {
     color: "#fff",
     fontWeight: "700",
+  },
+  analysisButton: {
+    backgroundColor: "#ebe7e2",
+    paddingVertical: 14,
+    borderRadius: 16,
+    alignItems: "center",
+    marginBottom: 18,
+  },
+  analysisText: {
+    color: "#5c5047",
+    fontWeight: "600",
+  },
+  empty: {
+    marginTop: 40,
+    textAlign: "center",
+    color: "#6b7280",
     fontSize: 16,
   },
-
-  analysisButton: {
-    backgroundColor: "#fff",
-    padding: 16,
-    borderRadius: 18,
-    marginBottom: 25,
-    borderWidth: 1,
-    borderColor: "#ECECEC",
-    alignItems: "center",
-  },
-
-  analysisText: {
-    color: "#8B1E1E",
-    fontWeight: "600",
-    fontSize: 15,
-  },
-
-  empty: {
-    textAlign: "center",
-    marginTop: 80,
-    color: "#999",
-    fontSize: 15,
-  },
-
   listContent: {
-    paddingBottom: 40,
+    paddingBottom: 24,
   },
-
   columnWrapper: {
-    justifyContent: "space-between",
+    gap: 12,
+    marginBottom: 12,
   },
-
   card: {
-    width: "48%",
+    flex: 1,
     backgroundColor: "#fff",
-    borderRadius: 20,
-    padding: 14,
-    marginBottom: 14,
+    borderRadius: 18,
+    padding: 12,
     shadowColor: "#000",
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    elevation: 3,
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
   },
-
   image: {
     width: "100%",
-    height: 110,
+    height: 150,
     borderRadius: 14,
+    backgroundColor: "#f2f2f2",
     marginBottom: 10,
-    resizeMode: "cover",
   },
-
   imagePlaceholder: {
     width: "100%",
-    height: 110,
+    height: 150,
     borderRadius: 14,
-    backgroundColor: "#EFEFEF",
+    backgroundColor: "#ece7e3",
     marginBottom: 10,
   },
-
   category: {
-    fontWeight: "600",
-    fontSize: 15,
-    marginBottom: 4,
+    fontSize: 16,
+    fontWeight: "700",
+    marginBottom: 8,
+    color: "#1f2937",
   },
-
   colorRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 2,
+    marginBottom: 8,
   },
-
   colorDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    marginRight: 6,
+    width: 12,
+    height: 12,
+    borderRadius: 999,
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: "#d1d5db",
   },
-
   colorText: {
-    fontSize: 12,
-    color: "#666",
+    color: "#374151",
+    fontSize: 13,
   },
-
   info: {
-    fontSize: 11,
-    color: "#666",
-    marginTop: 2,
+    color: "#4b5563",
+    fontSize: 12,
+    marginBottom: 4,
   },
-
   hint: {
-    fontSize: 10,
-    color: "#aaa",
-    marginTop: 5,
+    marginTop: 8,
+    color: "#9ca3af",
+    fontSize: 11,
   },
 });
