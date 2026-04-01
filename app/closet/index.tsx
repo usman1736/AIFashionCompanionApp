@@ -1,56 +1,80 @@
 import { useFocusEffect, useRouter } from "expo-router";
-import React, { useState } from "react";
+import React, { useCallback, useState } from "react";
 import {
-    Alert,
-    FlatList,
-    Image,
-    Pressable,
-    StyleSheet,
-    Text,
-    View,
+  Alert,
+  FlatList,
+  Image,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
 } from "react-native";
 
 import { getAuth } from "firebase/auth";
-import { collection, deleteDoc, doc, getDocs } from "firebase/firestore";
+import {
+  collection,
+  deleteDoc,
+  doc,
+  getDocs,
+  query,
+  where,
+} from "firebase/firestore";
 import { db } from "../../firebaseConfig";
 
+type ClosetItem = {
+  id: string;
+  userId?: string;
+  image?: string;
+  category?: string;
+  color?: string;
+  occasion?: string;
+  season?: string;
+  brand?: string;
+};
+
 export default function ClosetScreen() {
-  const [items, setItems] = useState<any[]>([]);
+  const [items, setItems] = useState<ClosetItem[]>([]);
   const [selectedCategory, setSelectedCategory] = useState("All");
   const router = useRouter();
 
-  // 🔥 FIXED LOAD (USER FILTER)
   const loadItems = async () => {
     try {
       const user = getAuth().currentUser;
 
-      const snapshot = await getDocs(collection(db, "closetItems"));
+      if (!user) {
+        setItems([]);
+        return;
+      }
 
-      const userItems = snapshot.docs
-        .map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        }))
-        .filter((item: any) => item.userId === user?.uid); //  KEY FIX
+      const q = query(
+        collection(db, "closetItems"),
+        where("userId", "==", user.uid),
+      );
+
+      const snapshot = await getDocs(q);
+
+      const userItems: ClosetItem[] = snapshot.docs.map((itemDoc) => ({
+        id: itemDoc.id,
+        ...(itemDoc.data() as Omit<ClosetItem, "id">),
+      }));
 
       setItems(userItems);
     } catch (error) {
       console.log("FETCH ERROR:", error);
+      Alert.alert("Error", "Could not load closet items.");
     }
   };
 
   useFocusEffect(
-    React.useCallback(() => {
+    useCallback(() => {
       loadItems();
     }, []),
   );
 
-  // 🔙 BACK
   const handleBack = () => {
-    router.replace("/home"); //  ALWAYS go home
+    router.replace("/home");
   };
 
-  // 🗑 DELETE
   const handleDelete = (id: string) => {
     Alert.alert("Delete Item", "Are you sure you want to delete this item?", [
       { text: "Cancel", style: "cancel" },
@@ -58,25 +82,37 @@ export default function ClosetScreen() {
         text: "Delete",
         style: "destructive",
         onPress: async () => {
-          await deleteDoc(doc(db, "closetItems", id)); //  direct delete
-          loadItems();
+          try {
+            await deleteDoc(doc(db, "closetItems", id));
+            loadItems();
+          } catch (error) {
+            console.log("DELETE ERROR:", error);
+            Alert.alert("Error", "Could not delete item.");
+          }
         },
       },
     ]);
   };
 
+  const filteredItems =
+    selectedCategory === "All"
+      ? items
+      : items.filter((item) => item.category === selectedCategory);
+
+  const getSafeColor = (color?: string) => {
+    if (!color) return "#D9D9D9";
+    return color.toLowerCase();
+  };
+
   return (
     <View style={styles.container}>
-      {/* 🔙 Back */}
       <Pressable onPress={handleBack} style={styles.backBtn}>
         <Text style={styles.backText}>← Back</Text>
       </Pressable>
 
-      {/* Title */}
       <Text style={styles.title}>My Closet</Text>
       <Text style={styles.subtitle}>Manage your wardrobe</Text>
 
-      {/* CATEGORY TABS */}
       <View style={styles.tabsRow}>
         {["All", "Tops", "Bottoms", "Shoes"].map((cat) => (
           <Pressable
@@ -96,7 +132,6 @@ export default function ClosetScreen() {
         ))}
       </View>
 
-      {/* ADD BUTTON */}
       <Pressable
         style={styles.addButton}
         onPress={() => router.push("/closet/add-item")}
@@ -104,7 +139,6 @@ export default function ClosetScreen() {
         <Text style={styles.addButtonText}>+ Add Item</Text>
       </Pressable>
 
-      {/* ANALYSIS BUTTON */}
       <Pressable
         style={styles.analysisButton}
         onPress={() => router.push("/closet/analysis")}
@@ -112,47 +146,39 @@ export default function ClosetScreen() {
         <Text style={styles.analysisText}>View Closet Analysis</Text>
       </Pressable>
 
-      {/* ITEMS */}
-      {items.length === 0 ? (
-        <Text style={styles.empty}>No items yet</Text>
+      {filteredItems.length === 0 ? (
+        <Text style={styles.empty}>✨ Your closet is empty</Text>
       ) : (
         <FlatList
-          data={
-            selectedCategory === "All"
-              ? items
-              : items.filter((i) => i.category === selectedCategory)
-          }
+          data={filteredItems}
           keyExtractor={(item) => item.id}
           numColumns={2}
-          columnWrapperStyle={{ justifyContent: "space-between" }}
-          contentContainerStyle={{ paddingBottom: 40 }}
+          columnWrapperStyle={styles.columnWrapper}
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
           renderItem={({ item }) => (
             <Pressable
               style={styles.card}
               onLongPress={() => handleDelete(item.id)}
             >
-              {/*  IMAGE FIX */}
               {item.image ? (
                 <Image source={{ uri: item.image }} style={styles.image} />
               ) : (
                 <View style={styles.imagePlaceholder} />
               )}
 
-              {/* CATEGORY */}
-              <Text style={styles.category}>{item.category}</Text>
+              <Text style={styles.category}>{item.category || "Item"}</Text>
 
-              {/* COLOR */}
               <View style={styles.colorRow}>
                 <View
                   style={[
                     styles.colorDot,
-                    { backgroundColor: item.color?.toLowerCase() },
+                    { backgroundColor: getSafeColor(item.color) },
                   ]}
                 />
-                <Text style={styles.colorText}>{item.color}</Text>
+                <Text style={styles.colorText}>{item.color || "No color"}</Text>
               </View>
 
-              {/* EXTRA INFO */}
               <Text style={styles.info}>Occasion: {item.occasion || "—"}</Text>
 
               <Text style={styles.info}>Season: {item.season || "—"}</Text>
@@ -174,12 +200,13 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     paddingHorizontal: 20,
-    paddingTop: 50,
-    backgroundColor: "#F5F5F5",
+    paddingTop: 60,
+    backgroundColor: "#F6F4F2",
   },
 
   backBtn: {
     marginBottom: 10,
+    alignSelf: "flex-start",
   },
 
   backText: {
@@ -189,26 +216,29 @@ const styles = StyleSheet.create({
   },
 
   title: {
-    fontSize: 28,
+    fontSize: 32,
     fontWeight: "700",
+    letterSpacing: 0.5,
   },
 
   subtitle: {
-    color: "#888",
-    marginBottom: 15,
+    color: "#777",
+    marginBottom: 20,
+    fontSize: 14,
   },
 
   tabsRow: {
     flexDirection: "row",
     gap: 10,
-    marginBottom: 15,
+    marginBottom: 20,
+    flexWrap: "wrap",
   },
 
   tab: {
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    backgroundColor: "#eee",
-    borderRadius: 20,
+    paddingVertical: 10,
+    paddingHorizontal: 18,
+    backgroundColor: "#EDEBE9",
+    borderRadius: 25,
   },
 
   tabActive: {
@@ -216,7 +246,8 @@ const styles = StyleSheet.create({
   },
 
   tabText: {
-    color: "#333",
+    color: "#444",
+    fontSize: 13,
   },
 
   tabTextActive: {
@@ -226,10 +257,14 @@ const styles = StyleSheet.create({
 
   addButton: {
     backgroundColor: "#8B1E1E",
-    paddingVertical: 14,
-    borderRadius: 14,
+    paddingVertical: 16,
+    borderRadius: 18,
     alignItems: "center",
     marginBottom: 12,
+    shadowColor: "#8B1E1E",
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
   },
 
   addButtonText: {
@@ -240,58 +275,73 @@ const styles = StyleSheet.create({
 
   analysisButton: {
     backgroundColor: "#fff",
-    padding: 14,
-    borderRadius: 14,
-    marginBottom: 20,
+    padding: 16,
+    borderRadius: 18,
+    marginBottom: 25,
     borderWidth: 1,
-    borderColor: "#eee",
+    borderColor: "#ECECEC",
     alignItems: "center",
   },
 
   analysisText: {
     color: "#8B1E1E",
     fontWeight: "600",
+    fontSize: 15,
   },
 
   empty: {
     textAlign: "center",
-    marginTop: 50,
-    color: "#888",
+    marginTop: 80,
+    color: "#999",
+    fontSize: 15,
+  },
+
+  listContent: {
+    paddingBottom: 40,
+  },
+
+  columnWrapper: {
+    justifyContent: "space-between",
   },
 
   card: {
     width: "48%",
     backgroundColor: "#fff",
-    borderRadius: 18,
-    padding: 12,
+    borderRadius: 20,
+    padding: 14,
     marginBottom: 14,
-    borderWidth: 1,
-    borderColor: "#eee",
+    shadowColor: "#000",
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 3,
   },
 
   image: {
+    width: "100%",
     height: 110,
-    borderRadius: 12,
+    borderRadius: 14,
     marginBottom: 10,
     resizeMode: "cover",
   },
 
   imagePlaceholder: {
+    width: "100%",
     height: 110,
-    borderRadius: 12,
+    borderRadius: 14,
     backgroundColor: "#EFEFEF",
     marginBottom: 10,
   },
 
   category: {
     fontWeight: "600",
-    fontSize: 16,
-    marginBottom: 5,
+    fontSize: 15,
+    marginBottom: 4,
   },
 
   colorRow: {
     flexDirection: "row",
     alignItems: "center",
+    marginBottom: 2,
   },
 
   colorDot: {
@@ -299,16 +349,15 @@ const styles = StyleSheet.create({
     height: 10,
     borderRadius: 5,
     marginRight: 6,
-    opacity: 0.8,
   },
 
   colorText: {
-    fontSize: 13,
+    fontSize: 12,
     color: "#666",
   },
 
   info: {
-    fontSize: 12,
+    fontSize: 11,
     color: "#666",
     marginTop: 2,
   },
