@@ -21,8 +21,6 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 
-const initializeAuthFn = FirebaseAuth.initializeAuth;
-const getAuthFn = FirebaseAuth.getAuth;
 const getReactNativePersistenceFn = (
   FirebaseAuth as typeof FirebaseAuth & {
     getReactNativePersistence?: (
@@ -31,13 +29,17 @@ const getReactNativePersistenceFn = (
   }
 ).getReactNativePersistence;
 
-export const auth = getAuthFn(app).app
-  ? getAuthFn(app)
-  : initializeAuthFn(app, {
+export const auth = (() => {
+  try {
+    return FirebaseAuth.initializeAuth(app, {
       persistence: getReactNativePersistenceFn
         ? getReactNativePersistenceFn(AsyncStorage)
         : FirebaseAuth.inMemoryPersistence,
     });
+  } catch {
+    return FirebaseAuth.getAuth(app);
+  }
+})();
 
 export const db = getFirestore(app);
 
