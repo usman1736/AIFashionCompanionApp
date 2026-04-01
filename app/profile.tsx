@@ -9,9 +9,10 @@ import {
   useWindowDimensions,
   View,
 } from "react-native";
+
+import AppScreenWrapper from "../components/layout/AppScreenWrapper";
 import { auth } from "../firebaseConfig";
 import { getUserProfile } from "../services/userService";
-import AppScreenWrapper from "../components/layout/AppScreenWrapper";
 import { colors } from "../styles/colors";
 import { spacing } from "../styles/spacing";
 import { typography } from "../styles/typography";
@@ -30,15 +31,13 @@ const quickLinks = [
   {
     title: "Saved Styles",
     icon: require("../assets/icons/saved-styles-icon.png"),
+    route: "/saved-styles",
   },
   {
     title: "Payment Methods",
     icon: require("../assets/icons/wallet-icon.png"),
   },
-  {
-    title: "Support",
-    icon: require("../assets/icons/support-icon.png"),
-  },
+  { title: "Support", icon: require("../assets/icons/support-icon.png") },
 ];
 
 const settingsOptions = [
@@ -63,7 +62,9 @@ export default function ProfileScreen() {
   useEffect(() => {
     const user = auth.currentUser;
     if (!user) return;
+
     setEmail(user.email || "");
+
     const fetchProfile = async () => {
       try {
         const profile = await getUserProfile(user.uid);
@@ -74,6 +75,7 @@ export default function ProfileScreen() {
         console.log("Profile fetch error:", e);
       }
     };
+
     fetchProfile();
   }, []);
 
@@ -100,38 +102,42 @@ export default function ProfileScreen() {
   const cardWidth = (contentWidth - gap * (columns - 1)) / columns;
 
   return (
-    <AppScreenWrapper backgroundColor={colors.offWhite}>
+    <AppScreenWrapper>
       <Text style={styles.title}>Profile</Text>
+
       <View style={styles.profileCard}>
         <Image
-          source={require("../assets/icons/account-circle.png")}
+          source={require("../assets/icons/profile-icon.png")}
           style={styles.avatar}
-          resizeMode="contain"
         />
         <View style={styles.profileTextWrap}>
           <Text style={styles.name}>{displayName}</Text>
           <Text style={styles.email}>{email}</Text>
         </View>
       </View>
+
       <Text style={styles.sectionTitle}>Quick Links</Text>
       <View style={[styles.grid, { gap }]}>
         {quickLinks.map((item) => (
           <Pressable
             key={item.title}
-            style={[styles.gridCard, { width: cardWidth }]}
             onPress={() => {
               if (item.route) router.push(item.route as never);
             }}
+            style={[
+              styles.gridCard,
+              {
+                width: cardWidth,
+                marginBottom: gap,
+              },
+            ]}
           >
-            <Image
-              source={item.icon}
-              style={styles.gridIcon}
-              resizeMode="contain"
-            />
+            <Image source={item.icon} style={styles.gridIcon} />
             <Text style={styles.gridText}>{item.title}</Text>
           </Pressable>
         ))}
       </View>
+
       <Text style={styles.sectionTitle}>Settings</Text>
       <View style={styles.settingsCard}>
         {settingsOptions.map((item, index) => (
@@ -149,6 +155,7 @@ export default function ProfileScreen() {
               <Text style={styles.settingText}>{item.title}</Text>
               <Text style={styles.chevron}>›</Text>
             </Pressable>
+
             {index !== settingsOptions.length - 1 ? (
               <View style={styles.divider} />
             ) : null}
