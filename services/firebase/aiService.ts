@@ -10,7 +10,15 @@ import {
 } from "firebase/firestore";
 
 import { db } from "../../firebaseConfig";
-import { AIConversation, AIMessage } from "../../types/ai";
+import { AIMessage } from "../../types/ai";
+
+export type AIConversation = {
+  id: string;
+  userId: string;
+  messages: AIMessage[];
+  createdAt?: unknown;
+  updatedAt?: unknown;
+};
 
 const conversationsRef = collection(db, "aiConversations");
 
@@ -32,10 +40,17 @@ export const getUserAIConversations = async (
   const snapshot = await getDocs(q);
 
   return snapshot.docs
-    .map((item) => ({
-      id: item.id,
-      ...(item.data() as Omit<AIConversation, "id">),
-    }))
+    .map((itemDoc) => {
+      const data = itemDoc.data() as Omit<AIConversation, "id">;
+
+      return {
+        id: itemDoc.id,
+        userId: data.userId,
+        messages: Array.isArray(data.messages) ? data.messages : [],
+        createdAt: data.createdAt,
+        updatedAt: data.updatedAt,
+      };
+    })
     .filter((item) => item.userId === userId);
 };
 

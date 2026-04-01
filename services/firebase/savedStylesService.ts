@@ -46,7 +46,16 @@ export const getUserSavedStyles = async (
             : undefined,
         source: data.source,
         reason: data.reason || "",
-        pieces: Array.isArray(data.pieces) ? data.pieces : [],
+        pieces: Array.isArray(data.pieces)
+          ? data.pieces.map((piece: any) => ({
+              id: piece?.id || "",
+              label: piece?.label || "",
+              imageUrl: piece?.imageUrl || "",
+              category: piece?.category || "",
+              color: piece?.color || "",
+              brand: piece?.brand || "",
+            }))
+          : [],
         suggestedSizes: Array.isArray(data.suggestedSizes)
           ? data.suggestedSizes
           : [],

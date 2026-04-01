@@ -53,7 +53,7 @@ export default function AIHomeScreen() {
               description="Discover AI-curated outfits from your wardrobe."
               buttonText="Get Suggestions"
               icon={require("../../assets/icons/outfit-icon.png")}
-              onPress={() => router.push("/ai/chat?mode=outfit" as any)}
+              onPress={() => router.push("/ai/outfit-suggestions" as any)}
             />
           </View>
 

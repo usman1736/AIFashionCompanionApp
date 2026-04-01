@@ -17,13 +17,11 @@ import {
 
 import { getAuth } from "firebase/auth";
 import { addDoc, collection, serverTimestamp } from "firebase/firestore";
-import {
-  getDownloadURL,
-  getStorage,
-  ref as storageRef,
-  uploadBytes,
-} from "firebase/storage";
+
 import { db } from "../../firebaseConfig";
+import { colors } from "../../styles/colors";
+import { radius, spacing } from "../../styles/spacing";
+import { typography } from "../../styles/typography";
 
 const CATEGORY_OPTIONS = [
   "Tops",
@@ -59,39 +57,25 @@ const QUICK_COLORS = [
   "beige",
 ] as const;
 
-async function compressImageForUpload(uri: string) {
-  const result = await ImageManipulator.manipulateAsync(
+async function prepareImageForSave(uri: string) {
+  const manipulated = await ImageManipulator.manipulateAsync(
     uri,
-    [{ resize: { width: 1200 } }],
+    [{ resize: { width: 700 } }],
     {
-      compress: 0.72,
+      compress: 0.45,
       format: ImageManipulator.SaveFormat.JPEG,
-      base64: false,
+      base64: true,
     },
   );
 
-  return result.uri;
-}
+  if (!manipulated.base64) {
+    throw new Error("Image processing failed.");
+  }
 
-async function uploadClosetImage(userId: string, localUri: string) {
-  const storage = getStorage();
-  const optimizedUri = await compressImageForUpload(localUri);
-
-  const response = await fetch(optimizedUri);
-  const blob = await response.blob();
-
-  const path = `closetItems/${userId}/${Date.now()}.jpg`;
-  const imageRef = storageRef(storage, path);
-
-  await uploadBytes(imageRef, blob, {
-    contentType: "image/jpeg",
-  });
-
-  const downloadURL = await getDownloadURL(imageRef);
+  const imageDataUrl = `data:image/jpeg;base64,${manipulated.base64}`;
 
   return {
-    imageUrl: downloadURL,
-    imagePath: path,
+    imageDataUrl,
   };
 }
 
@@ -169,7 +153,7 @@ export default function AddItemScreen() {
     setSaving(true);
 
     try {
-      const uploadedImage = await uploadClosetImage(user.uid, image);
+      const preparedImage = await prepareImageForSave(image);
 
       await addDoc(collection(db, "closetItems"), {
         userId: user.uid,
@@ -180,9 +164,9 @@ export default function AddItemScreen() {
         season,
         seasons: [season],
         brand: brand.trim() || "",
-        image: uploadedImage.imageUrl,
-        imageUrl: uploadedImage.imageUrl,
-        imagePath: uploadedImage.imagePath,
+        image: preparedImage.imageDataUrl,
+        imageUrl: preparedImage.imageDataUrl,
+        imagePath: "",
         wearCount: 0,
         createdAt: serverTimestamp(),
         dateAdded: serverTimestamp(),
@@ -190,9 +174,13 @@ export default function AddItemScreen() {
 
       Alert.alert("Saved!", "Your closet item was added.");
       router.replace("/closet");
-    } catch (error) {
+    } catch (error: any) {
       console.log("SAVE ITEM ERROR:", error);
-      Alert.alert("Error", "Could not save this item.");
+
+      Alert.alert(
+        "Could not save this item",
+        error?.message || "Image processing or Firestore save failed.",
+      );
     } finally {
       setSaving(false);
     }
@@ -329,7 +317,7 @@ export default function AddItemScreen() {
         disabled={saveDisabled}
       >
         {saving ? (
-          <ActivityIndicator color="#fff" />
+          <ActivityIndicator color={colors.white} />
         ) : (
           <Text style={styles.buttonText}>Save Item</Text>
         )}
@@ -376,52 +364,52 @@ export default function AddItemScreen() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: "#F5F5F5",
+    backgroundColor: colors.offWhite,
   },
   container: {
-    padding: 20,
-    paddingTop: 50,
-    paddingBottom: 32,
+    padding: spacing.xl,
+    paddingTop: spacing.xxl,
+    paddingBottom: spacing.xxxl,
   },
   backBtn: {
-    marginBottom: 10,
+    marginBottom: spacing.sm,
   },
   backText: {
-    fontSize: 16,
-    color: "#8B1E1E",
+    ...typography.body,
+    color: colors.buttonPrimary,
     fontWeight: "600",
   },
   title: {
-    fontSize: 28,
-    fontWeight: "700",
-    marginBottom: 6,
+    ...typography.titleLarge,
+    color: colors.darkText,
+    marginBottom: spacing.xs,
   },
   subtitle: {
-    color: "#6b7280",
-    marginBottom: 20,
+    ...typography.body,
+    color: colors.mutedText,
+    marginBottom: spacing.xl,
   },
   imageBox: {
     height: 190,
-    backgroundColor: "#ece7e3",
-    borderRadius: 18,
+    backgroundColor: colors.white,
+    borderRadius: radius.xl,
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 20,
+    marginBottom: spacing.xl,
     overflow: "hidden",
   },
   imageEmptyWrap: {
     alignItems: "center",
-    paddingHorizontal: 20,
+    paddingHorizontal: spacing.lg,
   },
   imageEmptyTitle: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#444",
+    ...typography.bodyMedium,
+    color: colors.darkText,
   },
   imageEmptySubtitle: {
-    marginTop: 6,
-    fontSize: 13,
-    color: "#777",
+    ...typography.caption,
+    marginTop: spacing.xs,
+    color: colors.mutedText,
     textAlign: "center",
   },
   image: {
@@ -429,75 +417,77 @@ const styles = StyleSheet.create({
     height: "100%",
   },
   label: {
-    marginBottom: 8,
-    fontWeight: "700",
-    color: "#1f2937",
+    ...typography.bodyMedium,
+    color: colors.darkText,
+    marginBottom: spacing.sm,
   },
   row: {
     flexDirection: "row",
-    gap: 10,
-    marginBottom: 16,
+    gap: spacing.sm,
+    marginBottom: spacing.lg,
     alignItems: "center",
   },
   wrapRow: {
     flexDirection: "row",
-    gap: 10,
-    marginBottom: 16,
+    gap: spacing.sm,
+    marginBottom: spacing.lg,
     flexWrap: "wrap",
   },
   chip: {
-    paddingVertical: 9,
-    paddingHorizontal: 14,
-    borderRadius: 999,
-    backgroundColor: "#e9e5e1",
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.pill,
+    backgroundColor: colors.white,
   },
   activeChip: {
-    backgroundColor: "#8B1E1E",
+    backgroundColor: colors.buttonPrimary,
   },
   chipText: {
-    color: "#1f2937",
-    fontWeight: "500",
+    ...typography.body,
+    color: colors.darkText,
   },
   activeChipText: {
-    color: "#fff",
+    color: colors.white,
   },
   color: {
     width: 35,
     height: 35,
-    borderRadius: 999,
+    borderRadius: radius.pill,
     borderWidth: 1,
     borderColor: "#d1d5db",
   },
   selectedColor: {
     borderWidth: 3,
-    borderColor: "#111827",
+    borderColor: colors.darkText,
   },
   addColor: {
     width: 35,
     height: 35,
-    borderRadius: 999,
+    borderRadius: radius.pill,
     borderWidth: 2,
     borderColor: "#ccc",
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#fff",
+    backgroundColor: colors.white,
   },
   addColorText: {
-    fontSize: 18,
+    ...typography.bodyMedium,
+    color: colors.darkText,
     fontWeight: "700",
   },
   input: {
     borderWidth: 1,
     borderColor: "#ddd",
-    padding: 12,
-    borderRadius: 12,
-    marginBottom: 20,
-    backgroundColor: "#fff",
+    padding: spacing.md,
+    borderRadius: radius.md,
+    marginBottom: spacing.xl,
+    backgroundColor: colors.white,
+    color: colors.darkText,
   },
   button: {
-    backgroundColor: "#8B1E1E",
-    padding: 15,
-    borderRadius: 20,
+    backgroundColor: colors.buttonPrimary,
+    padding: spacing.md,
+    borderRadius: radius.xl,
     alignItems: "center",
     minHeight: 52,
     justifyContent: "center",
@@ -506,35 +496,35 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   buttonText: {
-    color: "#fff",
-    fontWeight: "700",
+    ...typography.button,
+    color: colors.white,
   },
   modalBackdrop: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.25)",
     justifyContent: "center",
-    padding: 20,
+    padding: spacing.xl,
   },
   modalCard: {
-    backgroundColor: "#fff",
-    borderRadius: 18,
-    padding: 20,
+    backgroundColor: colors.white,
+    borderRadius: radius.xl,
+    padding: spacing.xl,
     alignItems: "center",
   },
   modalTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    marginBottom: 16,
+    ...typography.title,
+    color: colors.darkText,
+    marginBottom: spacing.lg,
   },
   modalColors: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 14,
+    gap: spacing.md,
     justifyContent: "center",
-    marginBottom: 20,
+    marginBottom: spacing.xl,
   },
   closeText: {
-    color: "#8B1E1E",
-    fontWeight: "700",
+    ...typography.button,
+    color: colors.buttonPrimary,
   },
 });
