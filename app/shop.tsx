@@ -378,11 +378,6 @@ export const PRODUCTS: Product[] = [
   },
 ];
 
-
-
-
-];
-
 const SIZES = ["XS", "S", "M", "L", "XL"] as const;
 type Size = (typeof SIZES)[number];
 
