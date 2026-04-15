@@ -157,7 +157,7 @@ export const PRODUCTS: Product[] = [
     productUrl: "https://hm.com",
   },
 {
-    id: "12",
+    id: "13",
     name: "Canvas Tote Bag",
     brand: "H&M",
     price: 25,
@@ -167,7 +167,7 @@ export const PRODUCTS: Product[] = [
     productUrl: "https://hm.com",
   },
   {
-    id: "13",
+    id: "14",
     name: "Skinny Fit Jeans",
     brand: "Zara",
     price: 69,
@@ -177,7 +177,7 @@ export const PRODUCTS: Product[] = [
     productUrl: "https://zara.com",
   },
   {
-    id: "14",
+    id: "15",
     name: "Straight Leg Jeans",
     brand: "Gap",
     price: 79,
@@ -187,7 +187,7 @@ export const PRODUCTS: Product[] = [
     productUrl: "https://gap.com",
   },
   {
-    id: "15",
+    id: "16",
     name: "Mom Jeans",
     brand: "Levi's",
     price: 89,
@@ -197,7 +197,7 @@ export const PRODUCTS: Product[] = [
     productUrl: "https://levi.com",
   },
   {
-    id: "16",
+    id: "17",
     name: "Cargo Pants",
     brand: "H&M",
     price: 59,
@@ -207,7 +207,7 @@ export const PRODUCTS: Product[] = [
     productUrl: "https://hm.com",
   },
   {
-    id: "17",
+    id: "18",
     name: "Wide Cargo Trousers",
     brand: "Zara",
     price: 75,
@@ -217,7 +217,7 @@ export const PRODUCTS: Product[] = [
     productUrl: "https://zara.com",
   },
   {
-    id: "18",
+    id: "19",
     name: "Essential Black Tee",
     brand: "Uniqlo",
     price: 19,
@@ -227,7 +227,7 @@ export const PRODUCTS: Product[] = [
     productUrl: "https://uniqlo.com",
   },
   {
-    id: "19",
+    id: "20",
     name: "Oversized Graphic Tee",
     brand: "H&M",
     price: 29,
@@ -237,7 +237,7 @@ export const PRODUCTS: Product[] = [
     productUrl: "https://hm.com",
   },
   {
-    id: "20",
+    id: "21",
     name: "Striped Tee",
     brand: "Gap",
     price: 32,
@@ -247,7 +247,7 @@ export const PRODUCTS: Product[] = [
     productUrl: "https://gap.com",
   },
   {
-    id: "21",
+    id: "22",
     name: "Flannel Shirt",
     brand: "Uniqlo",
     price: 49,
@@ -257,7 +257,7 @@ export const PRODUCTS: Product[] = [
     productUrl: "https://uniqlo.com",
   },
   {
-    id: "22",
+    id: "23",
     name: "Denim Shirt",
     brand: "Levi's",
     price: 65,
@@ -267,7 +267,7 @@ export const PRODUCTS: Product[] = [
     productUrl: "https://levi.com",
   },
   {
-    id: "23",
+    id: "24",
     name: "Classic Pullover Hoodie",
     brand: "Nike",
     price: 65,
@@ -277,7 +277,7 @@ export const PRODUCTS: Product[] = [
     productUrl: "https://nike.com",
   },
   {
-    id: "24",
+    id: "25",
     name: "Zip-Up Hoodie",
     brand: "Adidas",
     price: 70,
@@ -287,7 +287,7 @@ export const PRODUCTS: Product[] = [
     productUrl: "https://adidas.com",
   },
   {
-    id: "25",
+    id: "26",
     name: "Oversized Hoodie",
     brand: "H&M",
     price: 45,
@@ -297,7 +297,7 @@ export const PRODUCTS: Product[] = [
     productUrl: "https://hm.com",
   },
   {
-    id: "26",
+    id: "27",
     name: "Denim Jacket",
     brand: "Levi's",
     price: 110,
@@ -307,7 +307,7 @@ export const PRODUCTS: Product[] = [
     productUrl: "https://levi.com",
   },
   {
-    id: "27",
+    id: "28",
     name: "Puffer Jacket",
     brand: "Zara",
     price: 129,
@@ -317,7 +317,7 @@ export const PRODUCTS: Product[] = [
     productUrl: "https://zara.com",
   },
   {
-    id: "28",
+    id: "29",
     name: "Leather Jacket",
     brand: "Zara",
     price: 169,
@@ -327,7 +327,7 @@ export const PRODUCTS: Product[] = [
     productUrl: "https://zara.com",
   },
   {
-    id: "29",
+    id: "30",
     name: "Trench Coat",
     brand: "H&M",
     price: 119,
@@ -337,7 +337,7 @@ export const PRODUCTS: Product[] = [
     productUrl: "https://hm.com",
   },
   {
-    id: "30",
+    id: "31",
     name: "Bucket Hat",
     brand: "Nike",
     price: 30,
@@ -347,7 +347,7 @@ export const PRODUCTS: Product[] = [
     productUrl: "https://nike.com",
   },
   {
-    id: "31",
+    id: "32",
     name: "Leather Belt",
     brand: "Zara",
     price: 35,
@@ -357,7 +357,7 @@ export const PRODUCTS: Product[] = [
     productUrl: "https://zara.com",
   },
   {
-    id: "32",
+    id: "33",
     name: "White Chunky Sneakers",
     brand: "Adidas",
     price: 110,
@@ -367,7 +367,7 @@ export const PRODUCTS: Product[] = [
     productUrl: "https://adidas.com",
   },
   {
-    id: "33",
+    id: "34",
     name: "Black Loafers",
     brand: "Zara",
     price: 89,
