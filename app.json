@@ -1,0 +1,54 @@
+{
+  "expo": {
+    "name": "AIFashionCompanionApp",
+    "slug": "AIFashionCompanionApp",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icons/aura-logo.png",
+    "scheme": "aifashioncompanionapp",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {},
+      "edgeToEdgeEnabled": true,
+      "predictiveBackGestureEnabled": false,
+      "softwareKeyboardLayoutMode": "resize"
+    },
+    "web": {
+      "output": "static",
+      "favicon": "./assets/images/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/splash-icon.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#ffffff",
+          "dark": {
+            "backgroundColor": "#000000"
+          }
+        }
+      ],
+      "expo-secure-store",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "AURA uses your location to show today's weather so it can suggest outfits that suit the conditions outside."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow access to your photos to upload clothing items.",
+          "cameraPermission": "Allow access to your camera to scan clothing items."
+        }
+      ]
+    ]
+  }
+}

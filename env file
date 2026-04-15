@@ -1,0 +1,31 @@
+[33mcommit d4fb9dc5f16629a19f47d48b65ba3cabbcf91e4d[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmaster[m[33m)[m
+Author: Usman Basharat <usmanbasharat1027@gmail.com>
+Date:   Wed Apr 1 10:01:03 2026 -0600
+
+    Stop tracking functions env file
+
+[1mdiff --git a/functions/.env b/functions/.env[m
+[1mdeleted file mode 100644[m
+[1mindex f591885..0000000[m
+[1m--- a/functions/.env[m
+[1m+++ /dev/null[m
+[36m@@ -1,2 +0,0 @@[m
+[31m-GEMINI_API_KEY=AIzaSyBQnyKng7GFIkV6hv_cuwItnL24B9K6sqA[m
+[31m-GEMINI_MODEL=gemini-3.1-flash-lite-preview[m
+\ No newline at end of file[m
+
+[33mcommit 9148330c85f42d9ef44852dfa55d1c0624c2a41a[m
+Author: Usman Basharat <usmanbasharat1027@gmail.com>
+Date:   Wed Apr 1 09:51:55 2026 -0600
+
+    created home page for ai and created the ai companion
+
+[1mdiff --git a/functions/.env b/functions/.env[m
+[1mnew file mode 100644[m
+[1mindex 0000000..f591885[m
+[1m--- /dev/null[m
+[1m+++ b/functions/.env[m
+[36m@@ -0,0 +1,2 @@[m
+[32m+[m[32mGEMINI_API_KEY=AIzaSyBQnyKng7GFIkV6hv_cuwItnL24B9K6sqA[m
+[32m+[m[32mGEMINI_MODEL=gemini-3.1-flash-lite-preview[m
+\ No newline at end of file[m
