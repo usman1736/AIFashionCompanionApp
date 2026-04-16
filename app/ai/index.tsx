@@ -1,6 +1,7 @@
 import { useRouter } from "expo-router";
 import React from "react";
 import {
+  Alert,
   ScrollView,
   StyleSheet,
   Text,
@@ -20,6 +21,10 @@ export default function AIHomeScreen() {
 
   const isTablet = width >= 768;
   const isLargeTablet = width >= 1024;
+
+  const showComingSoonMessage = () => {
+    Alert.alert("Coming Soon", "This feature will be implemented later.");
+  };
 
   return (
     <AppScreenWrapper>
@@ -64,6 +69,26 @@ export default function AIHomeScreen() {
               buttonText="Find my Colors"
               icon={require("../../assets/icons/color-palette-icon.png")}
               onPress={() => router.push("/color-result" as any)}
+            />
+          </View>
+
+          <View style={[styles.cardWrap, isTablet && styles.cardWrapTablet]}>
+            <FeatureCard
+              title="Body Scan"
+              description="Scan your body measurements and get smarter styling support."
+              buttonText="Open Body Scan"
+              icon={require("../../assets/icons/ai-companion-icon.png")}
+              onPress={showComingSoonMessage}
+            />
+          </View>
+
+          <View style={[styles.cardWrap, isTablet && styles.cardWrapTablet]}>
+            <FeatureCard
+              title="Real Life Try-On"
+              description="Preview how outfits could look in a more realistic way."
+              buttonText="Try It On"
+              icon={require("../../assets/icons/outfit-icon.png")}
+              onPress={showComingSoonMessage}
             />
           </View>
         </View>
