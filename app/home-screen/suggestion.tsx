@@ -1,18 +1,18 @@
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
-import { auth } from "../../firebaseConfig";
 import { collection, getDocs, query, where } from "firebase/firestore";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
-    ActivityIndicator,
-    Alert,
-    Image,
-    Pressable,
-    StyleSheet,
-    Text,
-    View,
+  ActivityIndicator,
+  Alert,
+  Image,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
 } from "react-native";
+import { auth } from "../../firebaseConfig";
 
 import AppScreenWrapper from "../../components/layout/AppScreenWrapper";
 import { db } from "../../firebaseConfig";
@@ -40,15 +40,34 @@ type Outfit = {
 };
 
 const MAX_REFRESHES = 5;
-const STORAGE_KEY = "outfit_refresh_data";
+const COOLDOWN_MS = 24 * 60 * 60 * 1000;
+
+type RefreshData = {
+  count: number;
+  cooldownStartedAt: number | null;
+};
+
+function getDefaultRefreshData(): RefreshData {
+  return {
+    count: 0,
+    cooldownStartedAt: null,
+  };
+}
+
+function getTimeLeftFromCooldown(startedAt: number | null) {
+  if (!startedAt) return 0;
+  const resetTime = startedAt + COOLDOWN_MS;
+  return resetTime - Date.now();
+}
 
 function getImage(item: ClosetItem) {
   return item.imageUrl || item.image || "";
 }
 
 function getOccasion(item: ClosetItem) {
-  if (Array.isArray(item.occasions) && item.occasions.length > 0)
+  if (Array.isArray(item.occasions) && item.occasions.length > 0) {
     return item.occasions[0];
+  }
   return item.occasion || "Casual";
 }
 
@@ -62,12 +81,10 @@ function buildOutfits(items: ClosetItem[]): Outfit[] {
 
   for (let i = 0; i < count; i++) {
     outfits.push({
-      top: tops[i % tops.length] || null,
-      bottom: bottoms[i % bottoms.length] || null,
-      shoes: shoes[i % shoes.length] || null,
-      occasion: tops[i % tops.length]
-        ? getOccasion(tops[i % tops.length])
-        : "Casual",
+      top: tops.length > 0 ? tops[i % tops.length] : null,
+      bottom: bottoms.length > 0 ? bottoms[i % bottoms.length] : null,
+      shoes: shoes.length > 0 ? shoes[i % shoes.length] : null,
+      occasion: tops.length > 0 ? getOccasion(tops[i % tops.length]) : "Casual",
     });
   }
 
@@ -77,44 +94,121 @@ function buildOutfits(items: ClosetItem[]): Outfit[] {
 function calculateMatch(outfit: Outfit): number {
   const pieces = [outfit.top, outfit.bottom, outfit.shoes].filter(Boolean);
   if (pieces.length === 0) return 0;
-  const colors = pieces.map((i) => i!.color?.toLowerCase()).filter(Boolean);
-  const uniqueColors = new Set(colors).size;
+
+  const colorList = pieces
+    .map((piece) => piece?.color?.toLowerCase())
+    .filter(Boolean) as string[];
+
+  const uniqueColors = new Set(colorList).size;
+
   if (uniqueColors === 1) return 95;
   if (uniqueColors === 2) return 80;
   return 65;
 }
 
+function formatTimeLeft(ms: number) {
+  const safeMs = Math.max(0, ms);
+  const totalSeconds = Math.floor(safeMs / 1000);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(
+    2,
+    "0",
+  )}:${String(seconds).padStart(2, "0")}`;
+}
+
 export default function SuggestionsScreen() {
   const router = useRouter();
   const user = auth.currentUser;
+
+  const storageKey = useMemo(() => {
+    return user?.uid ? `outfit_refresh_data_${user.uid}` : null;
+  }, [user?.uid]);
+
   const [items, setItems] = useState<ClosetItem[]>([]);
   const [outfits, setOutfits] = useState<Outfit[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshCount, setRefreshCount] = useState(0);
   const [limitReached, setLimitReached] = useState(false);
   const [savingIndex, setSavingIndex] = useState<number | null>(null);
+  const [countdown, setCountdown] = useState("24:00:00");
 
   useEffect(() => {
+    if (!storageKey) return;
     loadRefreshData();
     fetchItems();
-  }, []);
+  }, [storageKey]);
 
-  const loadRefreshData = async () => {
-    try {
-      const raw = await AsyncStorage.getItem(STORAGE_KEY);
-      if (!raw) return;
-      const parsed = JSON.parse(raw);
-      const today = new Date().toDateString();
-      if (parsed.date !== today) {
+  useEffect(() => {
+    if (!limitReached || !storageKey) return;
+
+    const interval = setInterval(async () => {
+      const raw = await AsyncStorage.getItem(storageKey);
+      const parsed = raw
+        ? (JSON.parse(raw) as RefreshData)
+        : getDefaultRefreshData();
+      const timeLeft = getTimeLeftFromCooldown(parsed.cooldownStartedAt);
+
+      if (timeLeft <= 0) {
         await AsyncStorage.setItem(
-          STORAGE_KEY,
-          JSON.stringify({ date: today, count: 0 }),
+          storageKey,
+          JSON.stringify(getDefaultRefreshData()),
         );
         setRefreshCount(0);
         setLimitReached(false);
+        setCountdown("24:00:00");
+        return;
+      }
+
+      setCountdown(formatTimeLeft(timeLeft));
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [limitReached, storageKey]);
+
+  const loadRefreshData = async () => {
+    if (!storageKey) return;
+
+    try {
+      const raw = await AsyncStorage.getItem(storageKey);
+
+      if (!raw) {
+        await AsyncStorage.setItem(
+          storageKey,
+          JSON.stringify(getDefaultRefreshData()),
+        );
+        setRefreshCount(0);
+        setLimitReached(false);
+        setCountdown("24:00:00");
+        return;
+      }
+
+      const parsed = JSON.parse(raw) as RefreshData;
+      const count = Number(parsed?.count || 0);
+      const cooldownStartedAt = parsed?.cooldownStartedAt || null;
+
+      if (count >= MAX_REFRESHES) {
+        const timeLeft = getTimeLeftFromCooldown(cooldownStartedAt);
+
+        if (timeLeft <= 0) {
+          await AsyncStorage.setItem(
+            storageKey,
+            JSON.stringify(getDefaultRefreshData()),
+          );
+          setRefreshCount(0);
+          setLimitReached(false);
+          setCountdown("24:00:00");
+        } else {
+          setRefreshCount(count);
+          setLimitReached(true);
+          setCountdown(formatTimeLeft(timeLeft));
+        }
       } else {
-        setRefreshCount(parsed.count);
-        setLimitReached(parsed.count >= MAX_REFRESHES);
+        setRefreshCount(count);
+        setLimitReached(false);
+        setCountdown("24:00:00");
       }
     } catch (e) {
       console.log("Refresh load error:", e);
@@ -123,17 +217,20 @@ export default function SuggestionsScreen() {
 
   const fetchItems = async () => {
     if (!user) return;
+
     setLoading(true);
     try {
       const q = query(
         collection(db, "closetItems"),
         where("userId", "==", user.uid),
       );
+
       const snap = await getDocs(q);
       const data = snap.docs.map((d) => ({
         id: d.id,
         ...(d.data() as Omit<ClosetItem, "id">),
       }));
+
       setItems(data);
       setOutfits(buildOutfits(data));
     } catch (e) {
@@ -144,27 +241,60 @@ export default function SuggestionsScreen() {
   };
 
   const handleRefresh = async () => {
-    if (limitReached) {
-      Alert.alert(
-        "Limit Reached",
-        "You've used all 5 refreshes for today. Come back tomorrow!",
-      );
-      return;
+    if (!storageKey) return;
+
+    const raw = await AsyncStorage.getItem(storageKey);
+    let parsed: RefreshData = raw ? JSON.parse(raw) : getDefaultRefreshData();
+
+    if (parsed.count >= MAX_REFRESHES) {
+      const timeLeft = getTimeLeftFromCooldown(parsed.cooldownStartedAt);
+
+      if (timeLeft <= 0) {
+        parsed = getDefaultRefreshData();
+        await AsyncStorage.setItem(storageKey, JSON.stringify(parsed));
+        setRefreshCount(0);
+        setLimitReached(false);
+        setCountdown("24:00:00");
+      } else {
+        setRefreshCount(parsed.count);
+        setLimitReached(true);
+        setCountdown(formatTimeLeft(timeLeft));
+        Alert.alert(
+          "Limit Reached",
+          "You have used all 5 refreshes for today.",
+        );
+        return;
+      }
     }
-    const newCount = refreshCount + 1;
-    const today = new Date().toDateString();
-    await AsyncStorage.setItem(
-      STORAGE_KEY,
-      JSON.stringify({ date: today, count: newCount }),
-    );
+
+    const newCount = parsed.count + 1;
+    const updatedData: RefreshData = {
+      count: newCount,
+      cooldownStartedAt:
+        newCount >= MAX_REFRESHES
+          ? parsed.cooldownStartedAt || Date.now()
+          : null,
+    };
+
+    await AsyncStorage.setItem(storageKey, JSON.stringify(updatedData));
+
     setRefreshCount(newCount);
-    if (newCount >= MAX_REFRESHES) setLimitReached(true);
+
     const shuffled = [...items].sort(() => Math.random() - 0.5);
     setOutfits(buildOutfits(shuffled));
+
+    if (newCount >= MAX_REFRESHES) {
+      setLimitReached(true);
+      setCountdown("24:00:00");
+    } else {
+      setLimitReached(false);
+      setCountdown("24:00:00");
+    }
   };
 
   const handleSave = async (outfit: Outfit, index: number) => {
     if (!user) return;
+
     setSavingIndex(index);
     try {
       const pieces = [outfit.top, outfit.bottom, outfit.shoes]
@@ -209,17 +339,26 @@ export default function SuggestionsScreen() {
       <View style={styles.refreshRow}>
         <Text style={styles.refreshInfo}>
           {limitReached
-            ? "⚠️ Limit reached — resets tomorrow"
+            ? "⚠️ Limit reached"
             : `🔄 ${MAX_REFRESHES - refreshCount} refreshes left today`}
         </Text>
+
         <Pressable
           style={[styles.refreshBtn, limitReached && styles.refreshDisabled]}
           onPress={handleRefresh}
-          disabled={limitReached}
         >
-          <Text style={styles.refreshBtnText}>Refresh</Text>
+          <Text style={styles.refreshBtnText}>
+            {limitReached ? "Refresh Locked" : "Refresh"}
+          </Text>
         </Pressable>
       </View>
+
+      {limitReached && (
+        <View style={styles.timerCard}>
+          <Text style={styles.timerLabel}>You can generate again in</Text>
+          <Text style={styles.timerText}>{countdown}</Text>
+        </View>
+      )}
 
       {loading ? (
         <ActivityIndicator
@@ -236,7 +375,9 @@ export default function SuggestionsScreen() {
         outfits.map((outfit, index) => (
           <View key={index} style={styles.outfitCard}>
             <Text style={styles.outfitTitle}>Outfit {index + 1}</Text>
-            <Text style={styles.matchText}>🎯 {calculateMatch(outfit)}% Match</Text>
+            <Text style={styles.matchText}>
+              🎯 {calculateMatch(outfit)}% Match
+            </Text>
             <Text style={styles.occasion}>Occasion: {outfit.occasion}</Text>
 
             <View style={styles.itemsRow}>
@@ -300,7 +441,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: spacing.xl,
+    marginBottom: spacing.md,
   },
   refreshInfo: {
     ...typography.caption,
@@ -321,6 +462,23 @@ const styles = StyleSheet.create({
     ...typography.caption,
     color: colors.white,
     fontWeight: "700",
+  },
+  timerCard: {
+    backgroundColor: "#F7F1ED",
+    borderRadius: radius.xl,
+    padding: spacing.lg,
+    alignItems: "center",
+    marginBottom: spacing.xl,
+  },
+  timerLabel: {
+    ...typography.body,
+    color: colors.mutedText,
+    marginBottom: spacing.xs,
+  },
+  timerText: {
+    color: colors.buttonPrimary,
+    fontSize: 28,
+    fontWeight: "800",
   },
   emptyCard: {
     backgroundColor: colors.white,

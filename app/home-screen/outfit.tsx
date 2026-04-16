@@ -1,17 +1,17 @@
 import { Ionicons } from "@expo/vector-icons";
-import { addDoc, collection, getDocs, query, where } from "firebase/firestore";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { auth } from "../../firebaseConfig";
+import { addDoc, collection, getDocs, query, where } from "firebase/firestore";
 import { useEffect, useState } from "react";
 import {
-    ActivityIndicator,
-     Alert,
-    Image,
-    Pressable,
-    StyleSheet,
-    Text,
-    View,
+  ActivityIndicator,
+  Alert,
+  Image,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
 } from "react-native";
+import { auth } from "../../firebaseConfig";
 
 import AppScreenWrapper from "../../components/layout/AppScreenWrapper";
 import { db } from "../../firebaseConfig";
@@ -38,6 +38,7 @@ export default function OutfitScreen() {
     shoesId?: string;
     accessoryId?: string;
   }>();
+
   const [items, setItems] = useState<ClosetItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [wornToday, setWornToday] = useState(false);
@@ -45,6 +46,7 @@ export default function OutfitScreen() {
 
   useEffect(() => {
     if (!user) return;
+
     const fetchItems = async () => {
       const q = query(
         collection(db, "closetItems"),
@@ -58,24 +60,37 @@ export default function OutfitScreen() {
       setItems(data);
       setLoading(false);
     };
+
     fetchItems();
   }, [user]);
 
   const selectedIds = [topId, bottomId, shoesId, accessoryId].filter(Boolean);
-  const outfit = selectedIds.length > 0
-    ? selectedIds.map((id) => items.find((i) => i.id === id)).filter(Boolean) as ClosetItem[]
-    : items.filter((i) => ["tops", "bottoms", "shoes"].includes(i.category?.toLowerCase() ?? "")).slice(0, 3);
+
+  const outfit =
+    selectedIds.length > 0
+      ? (selectedIds
+          .map((id) => items.find((i) => i.id === id))
+          .filter(Boolean) as ClosetItem[])
+      : items
+          .filter((i) =>
+            ["tops", "bottoms", "shoes"].includes(
+              i.category?.toLowerCase() ?? "",
+            ),
+          )
+          .slice(0, 3);
 
   const getImage = (item: ClosetItem) => item.imageUrl || item.image || "";
 
   const getOccasion = (item: ClosetItem) => {
-    if (Array.isArray(item.occasions) && item.occasions.length > 0)
+    if (Array.isArray(item.occasions) && item.occasions.length > 0) {
       return item.occasions.join(", ");
+    }
     return item.occasion || "—";
   };
 
-const handleWearThis = async () => {
+  const handleWearThis = async () => {
     if (!user || outfit.length === 0) return;
+
     setLogging(true);
     try {
       await addDoc(collection(db, "wornOutfits"), {
@@ -88,6 +103,7 @@ const handleWearThis = async () => {
           color: item.color || "",
         })),
       });
+
       setWornToday(true);
       Alert.alert("Nice!", "Outfit logged as worn today ✅");
     } catch (e) {
@@ -97,16 +113,15 @@ const handleWearThis = async () => {
     }
   };
 
-
-
   return (
     <AppScreenWrapper>
       <View style={styles.headerRow}>
         <Pressable onPress={() => router.back()} style={styles.backBtn}>
           <Ionicons name="arrow-back" size={24} color={colors.buttonPrimary} />
         </Pressable>
-        <Text style={styles.title}>Today's Outfit</Text>
+        <Text style={styles.title}>Today&apos;s Outfit</Text>
       </View>
+
       <Text style={styles.sub}>Picked from your wardrobe</Text>
 
       {loading ? (
@@ -128,6 +143,7 @@ const handleWearThis = async () => {
             ) : (
               <View style={styles.imagePlaceholder} />
             )}
+
             <View style={styles.itemInfo}>
               <Text style={styles.category}>{item.category}</Text>
               <Text style={styles.detail}>Color: {item.color || "—"}</Text>
@@ -137,18 +153,21 @@ const handleWearThis = async () => {
         ))
       )}
 
-{outfit.length > 0 && (
+      {outfit.length > 0 && (
         <Pressable
           style={[styles.wearBtn, wornToday && styles.wearBtnDone]}
           onPress={handleWearThis}
           disabled={wornToday || logging}
         >
           <Text style={styles.wearBtnText}>
-            {wornToday ? "✅ Worn Today" : logging ? "Logging..." : "👕 Wear This"}
+            {wornToday
+              ? "✅ Worn Today"
+              : logging
+                ? "Logging..."
+                : "👕 Wear This"}
           </Text>
         </Pressable>
       )}
-
     </AppScreenWrapper>
   );
 }
@@ -215,7 +234,9 @@ const styles = StyleSheet.create({
     backgroundColor: "#ECE7E3",
     marginRight: spacing.md,
   },
-  itemInfo: { flex: 1 },
+  itemInfo: {
+    flex: 1,
+  },
   category: {
     ...typography.bodyMedium,
     fontWeight: "700",
@@ -229,7 +250,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xs,
     textTransform: "capitalize",
   },
-wearBtn: {
+  wearBtn: {
     backgroundColor: colors.buttonPrimary,
     borderRadius: radius.xl,
     paddingVertical: spacing.lg,
@@ -244,5 +265,4 @@ wearBtn: {
     fontWeight: "700",
     fontSize: 16,
   },
-
 });
