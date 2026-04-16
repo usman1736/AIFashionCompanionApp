@@ -56,7 +56,7 @@ export default function BodyScanScreen() {
           <View style={styles.buttonWrap}>
             <AuthButton
               title="Start Scan"
-              onPress={() => router.push("/ai-confirmation")}
+              onPress={() => alert("This feature will be implemented soon")}
             />
           </View>
         </View>
