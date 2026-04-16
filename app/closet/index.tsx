@@ -4,6 +4,7 @@ import {
   Alert,
   Image,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -148,7 +149,9 @@ export default function ClosetScreen() {
   };
 
   return (
-    <AppScreenWrapper scrollProps={{ scrollEnabled: filteredItems.length === 0 }}>
+    <AppScreenWrapper
+      scrollProps={{ scrollEnabled: filteredItems.length === 0 }}
+    >
       <Text style={styles.title}>My Closet</Text>
       <Text style={styles.subtitle}>Manage your wardrobe</Text>
 
@@ -188,7 +191,7 @@ export default function ClosetScreen() {
       {filteredItems.length === 0 ? (
         <Text style={styles.empty}>✨ Your closet is empty</Text>
       ) : (
-        <View style={styles.grid}>
+        <ScrollView contentContainerStyle={styles.grid}>
           {filteredItems.map((item) => {
             const imageUri = getDisplayImage(item);
             return (
@@ -204,17 +207,30 @@ export default function ClosetScreen() {
                 )}
                 <Text style={styles.category}>{item.category || "Item"}</Text>
                 <View style={styles.colorRow}>
-                  <View style={[styles.colorDot, { backgroundColor: getSafeColor(item.color) }]} />
-                  <Text style={styles.colorText}>{item.color || "No color"}</Text>
+                  <View
+                    style={[
+                      styles.colorDot,
+                      { backgroundColor: getSafeColor(item.color) },
+                    ]}
+                  />
+                  <Text style={styles.colorText}>
+                    {item.color || "No color"}
+                  </Text>
                 </View>
-                <Text style={styles.info}>Occasion: {getDisplayOccasion(item)}</Text>
-                <Text style={styles.info}>Season: {getDisplaySeason(item)}</Text>
-                {item.brand ? <Text style={styles.info}>Brand: {item.brand}</Text> : null}
+                <Text style={styles.info}>
+                  Occasion: {getDisplayOccasion(item)}
+                </Text>
+                <Text style={styles.info}>
+                  Season: {getDisplaySeason(item)}
+                </Text>
+                {item.brand ? (
+                  <Text style={styles.info}>Brand: {item.brand}</Text>
+                ) : null}
                 <Text style={styles.hint}>Hold to delete</Text>
               </Pressable>
             );
           })}
-        </View>
+        </ScrollView>
       )}
     </AppScreenWrapper>
   );
