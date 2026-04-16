@@ -5,18 +5,17 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { getAuth } from "firebase/auth";
 import { collection, getDocs } from "firebase/firestore";
-import { db } from "../../firebaseConfig";
 import AppScreenWrapper from "../../components/layout/AppScreenWrapper";
+import { db } from "../../firebaseConfig";
 
 export default function ClosetAnalysisScreen() {
   const [items, setItems] = useState<any[]>([]);
   const router = useRouter();
 
-  // 🔥 FIXED LOAD (USER FILTER)
+  // 🔥 LOAD USER ITEMS
   const loadItems = async () => {
     try {
       const user = getAuth().currentUser;
-
       if (!user) return;
 
       const snapshot = await getDocs(collection(db, "closetItems"));
@@ -26,7 +25,7 @@ export default function ClosetAnalysisScreen() {
           id: doc.id,
           ...doc.data(),
         }))
-        .filter((item: any) => item.userId === user.uid); // 🔥 FIX
+        .filter((item: any) => item.userId === user.uid);
 
       setItems(userItems);
     } catch (error) {
@@ -40,26 +39,27 @@ export default function ClosetAnalysisScreen() {
     }, []),
   );
 
-  // 📊 STATS
+  // 📊 TOTAL
   const totalItems = items.length;
 
-  const tops = items.filter((i) => i.category === "Tops").length;
-  const bottoms = items.filter((i) => i.category === "Bottoms").length;
-  const shoes = items.filter((i) => i.category === "Shoes").length;
+  // 🔥 DYNAMIC CATEGORY COUNTS
+  const categoryCounts: Record<string, number> = {};
 
-  const most =
-    tops >= bottoms && tops >= shoes
-      ? "Tops"
-      : bottoms >= shoes
-        ? "Bottoms"
-        : "Shoes";
+  items.forEach((item) => {
+    const cat = item.category || "Other";
 
-  const least =
-    tops <= bottoms && tops <= shoes
-      ? "Tops"
-      : bottoms <= shoes
-        ? "Bottoms"
-        : "Shoes";
+    if (categoryCounts[cat]) {
+      categoryCounts[cat]++;
+    } else {
+      categoryCounts[cat] = 1;
+    }
+  });
+
+  // 🔥 INSIGHTS
+  const sorted = Object.entries(categoryCounts).sort((a, b) => b[1] - a[1]);
+
+  const most = sorted[0]?.[0] || "—";
+  const least = sorted[sorted.length - 1]?.[0] || "—";
 
   // 🔙 BACK
   const handleBack = () => {
@@ -89,20 +89,16 @@ export default function ClosetAnalysisScreen() {
       <View style={styles.card}>
         <Text style={styles.label}>Items per Category</Text>
 
-        <View style={styles.row}>
-          <Text style={styles.stat}>Tops</Text>
-          <Text style={styles.statValue}>{tops}</Text>
-        </View>
+        {Object.entries(categoryCounts).map(([category, count]) => (
+          <View key={category} style={styles.row}>
+            <Text style={styles.stat}>{category}</Text>
+            <Text style={styles.statValue}>{count}</Text>
+          </View>
+        ))}
 
-        <View style={styles.row}>
-          <Text style={styles.stat}>Bottoms</Text>
-          <Text style={styles.statValue}>{bottoms}</Text>
-        </View>
-
-        <View style={styles.row}>
-          <Text style={styles.stat}>Shoes</Text>
-          <Text style={styles.statValue}>{shoes}</Text>
-        </View>
+        {Object.keys(categoryCounts).length === 0 && (
+          <Text style={styles.stat}>No items yet</Text>
+        )}
       </View>
 
       {/* INSIGHTS */}
