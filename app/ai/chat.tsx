@@ -1,9 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
-import * as ImageManipulator from "expo-image-manipulator";
 import * as ImagePicker from "expo-image-picker";
-import * as Location from "expo-location";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { httpsCallable } from "firebase/functions";
 import React, {
   useCallback,
   useEffect,
@@ -30,85 +27,18 @@ import ChatBubble from "../../components/ui/ai/ChatBubble";
 import ChatInputBar from "../../components/ui/ai/ChatInputBar";
 
 import { collection, getDocs, query, where } from "firebase/firestore";
-import { auth, db, functions } from "../../firebaseConfig";
-import { getColorProfile, ColorProfile } from "../../services/colorService";
+import { auth, db } from "../../firebaseConfig";
 import { createSavedStyle } from "../../services/firebase/savedStylesService";
 import { colors } from "../../styles/colors";
 import { spacing } from "../../styles/spacing";
 import { typography } from "../../styles/typography";
 import { AIMessage, AIOutfit } from "../../types/ai";
 
-type AuraHistoryTurn = {
-  sender: "user" | "assistant";
-  text: string;
+type ClosetItem = {
+  category: string;
+  color: string;
+  brand?: string;
 };
-
-type AuraStylistRequest = {
-  message: string;
-  isInitialMessage?: boolean;
-  location?: {
-    city?: string;
-    region?: string;
-    country?: string;
-  };
-  weather?: {
-    temperatureC?: number;
-    condition?: string;
-    highC?: number;
-    lowC?: number;
-  };
-  history?: AuraHistoryTurn[];
-  imageBase64?: string;
-  imageMimeType?: string;
-  colorProfile?: ColorProfile;
-  closetItems?: { category: string; color: string; brand?: string }[];
-};
-
-type AuraStylistResponse = {
-  isFashionRelated: boolean;
-  responseMode: "chat" | "outfits";
-  greeting: string;
-  assistantMessage: string;
-  outfitCards: Array<{
-    title: string;
-    occasion: string;
-    matchPercentage: number;
-    reason: string;
-    clothingPieces: string[];
-    suggestedSizes: string[];
-  }>;
-};
-
-type GreetingContext = {
-  location?: {
-    city?: string;
-    region?: string;
-    country?: string;
-  };
-  weather?: {
-    temperatureC?: number;
-    condition?: string;
-    highC?: number;
-    lowC?: number;
-  };
-};
-
-type PreparedImagePayload = {
-  imageBase64: string;
-  imageMimeType: string;
-};
-
-function getInitialPrompt(mode?: string) {
-  if (mode === "outfit") {
-    return "Say hello and ask what kind of outfit the user wants today.";
-  }
-
-  if (mode === "closet") {
-    return "Say hello and invite the user to ask styling questions about their clothes.";
-  }
-
-  return "Say hello and introduce yourself as Aura, a conversational AI fashion companion.";
-}
 
 function createTextMessage(
   sender: "user" | "assistant",
@@ -123,174 +53,160 @@ function createTextMessage(
   };
 }
 
-function mapOutfitCardToAIOutfit(
-  card: AuraStylistResponse["outfitCards"][number],
-): AIOutfit {
+function createOutfitMessage(
+  outfit: AIOutfit,
+  createdAt = Date.now(),
+): AIMessage {
   return {
-    title: card.title,
-    occasion: card.occasion,
-    matchPercentage: card.matchPercentage,
-    reason: card.reason,
-    pieces: card.clothingPieces.map((piece, index) => ({
-      id: `${index}-${piece}`,
-      label: piece,
-    })),
-    suggestedSizes: Array.isArray(card.suggestedSizes)
-      ? card.suggestedSizes
-      : [],
+    id: `assistant-outfit-${createdAt}-${Math.random().toString(36).slice(2, 8)}`,
+    sender: "assistant",
+    createdAt,
+    outfit,
   };
 }
 
-function getErrorMessage(error: unknown) {
-  if (
-    typeof error === "object" &&
-    error !== null &&
-    "message" in error &&
-    typeof (error as { message?: unknown }).message === "string"
-  ) {
-    return (error as { message: string }).message;
-  }
-
-  return "Something went wrong.";
+function normalizeText(text: string) {
+  return text.trim().toLowerCase();
 }
 
-async function prepareImageForAI(uri: string): Promise<PreparedImagePayload> {
-  const manipulated = await ImageManipulator.manipulateAsync(
-    uri,
-    [{ resize: { width: 1280 } }],
-    {
-      compress: 0.65,
-      format: ImageManipulator.SaveFormat.JPEG,
-      base64: true,
-    },
+function isGreeting(text: string) {
+  const normalized = normalizeText(text);
+  return normalized === "hi" || normalized === "hello" || normalized === "hey";
+}
+
+function isNavyBlueColorQuestion(text: string) {
+  const normalized = normalizeText(text);
+
+  const asksAboutColors =
+    normalized.includes("what colour looks good with navy blue") ||
+    normalized.includes("what color looks good with navy blue") ||
+    normalized.includes("colours that look good with navy blue") ||
+    normalized.includes("colors that look good with navy blue") ||
+    normalized.includes("what goes with navy blue") ||
+    normalized.includes("what matches navy blue");
+
+  return asksAboutColors;
+}
+
+function isNavyBlueOutfitRequest(text: string) {
+  const normalized = normalizeText(text);
+
+  const mentionsNavyBlue = normalized.includes("navy blue");
+  const asksForOutfit =
+    normalized.includes("create me an outfit") ||
+    normalized.includes("make me an outfit") ||
+    normalized.includes("build me an outfit") ||
+    normalized.includes("can you create me an outfit") ||
+    normalized.includes("outfit");
+
+  return mentionsNavyBlue && asksForOutfit;
+}
+
+function getHardcodedTextReply(message: string): string {
+  if (isGreeting(message)) {
+    return (
+      "Hi, I’m Aura, your personal AI fashion companion. " +
+      "I can help you with outfit ideas, color matching, and styling suggestions " +
+      "to help you put together a polished look."
+    );
+  }
+
+  if (isNavyBlueColorQuestion(message)) {
+    return [
+      "These colours look especially good with navy blue:",
+      "",
+      "• White — creates a clean and crisp contrast.",
+      "• Beige or cream — gives a softer, more polished look.",
+      "• Light grey — keeps the outfit balanced and modern.",
+      "• Camel or tan — adds warmth and makes navy feel richer.",
+      "• Blush pink — gives a subtle, stylish contrast.",
+      "• Burgundy — works well because both colours feel deep and refined.",
+      "• Olive green — adds an earthy tone that pairs nicely with navy.",
+      "",
+      "If you want, I can also build you an outfit using navy blue.",
+    ].join("\n");
+  }
+
+  return (
+    "I can help with outfit ideas, color matching, and style suggestions. " +
+    "Try asking me something like “what colour looks good with navy blue” " +
+    "or “can you create me an outfit that has navy blue.”"
   );
+}
 
-  if (!manipulated.base64) {
-    throw new Error("Could not prepare the image.");
-  }
-
+function getHardcodedOutfit(): AIOutfit {
   return {
-    imageBase64: manipulated.base64,
-    imageMimeType: "image/jpeg",
+    title: "Navy Blue Smart Casual Outfit",
+    occasion: "Smart casual / everyday outing",
+    matchPercentage: 96,
+    reason:
+      "This outfit keeps navy blue as the main colour and pairs it with clean neutral tones for a polished and balanced look.",
+    pieces: [
+      { id: "top-1", label: "Top: White fitted t-shirt or white button-up" },
+      {
+        id: "outer-1",
+        label: "Outerwear: Navy blue overshirt or light jacket",
+      },
+      { id: "bottom-1", label: "Bottom: Beige or light grey trousers" },
+      { id: "shoes-1", label: "Shoes: White sneakers or tan loafers" },
+      {
+        id: "accessory-1",
+        label: "Accessory: Silver watch or simple navy bag",
+      },
+    ],
+    suggestedSizes: [
+      "Top: true to size",
+      "Bottom: regular fit",
+      "Outerwear: slightly relaxed fit",
+    ],
   };
 }
 
-async function fetchWeatherForCoordinates(latitude: number, longitude: number) {
-  const weatherCodeMap: Record<number, string> = {
-    0: "Clear",
-    1: "Mainly clear",
-    2: "Partly cloudy",
-    3: "Overcast",
-    45: "Fog",
-    48: "Fog",
-    51: "Light drizzle",
-    53: "Drizzle",
-    55: "Heavy drizzle",
-    61: "Light rain",
-    63: "Rain",
-    65: "Heavy rain",
-    71: "Light snow",
-    73: "Snow",
-    75: "Heavy snow",
-    80: "Rain showers",
-    81: "Rain showers",
-    82: "Heavy showers",
-    95: "Thunderstorm",
-  };
-
-  const url =
-    `https://api.open-meteo.com/v1/forecast?latitude=${latitude}` +
-    `&longitude=${longitude}` +
-    `&current=temperature_2m,weather_code` +
-    `&daily=temperature_2m_max,temperature_2m_min&forecast_days=1`;
-
-  const response = await fetch(url);
-
-  if (!response.ok) {
-    throw new Error("Unable to fetch weather.");
+function getHardcodedAssistantMessages(message: string): AIMessage[] {
+  if (isGreeting(message)) {
+    return [createTextMessage("assistant", getHardcodedTextReply(message))];
   }
 
-  const data = await response.json();
+  if (isNavyBlueColorQuestion(message)) {
+    return [createTextMessage("assistant", getHardcodedTextReply(message))];
+  }
 
-  const code = data?.current?.weather_code;
-  const condition =
-    typeof code === "number"
-      ? weatherCodeMap[code] || "Current weather"
-      : "Current weather";
-
-  return {
-    temperatureC:
-      typeof data?.current?.temperature_2m === "number"
-        ? data.current.temperature_2m
-        : undefined,
-    condition,
-    highC:
-      typeof data?.daily?.temperature_2m_max?.[0] === "number"
-        ? data.daily.temperature_2m_max[0]
-        : undefined,
-    lowC:
-      typeof data?.daily?.temperature_2m_min?.[0] === "number"
-        ? data.daily.temperature_2m_min[0]
-        : undefined,
-  };
-}
-
-async function getGreetingContext(): Promise<GreetingContext> {
-  try {
-    const permission = await Location.requestForegroundPermissionsAsync();
-
-    if (!permission.granted) {
-      return {};
-    }
-
-    const position = await Location.getCurrentPositionAsync({
-      accuracy: Location.Accuracy.Balanced,
-    });
-
-    const reverseGeocode = await Location.reverseGeocodeAsync({
-      latitude: position.coords.latitude,
-      longitude: position.coords.longitude,
-    });
-
-    const place = reverseGeocode[0];
-
-    const weather = await fetchWeatherForCoordinates(
-      position.coords.latitude,
-      position.coords.longitude,
+  if (isNavyBlueOutfitRequest(message)) {
+    const createdAt = Date.now();
+    const introMessage = createTextMessage(
+      "assistant",
+      "Absolutely — here is a navy blue outfit idea you can save.",
+      createdAt,
     );
 
-    return {
-      location: {
-        city: place?.city || place?.district || undefined,
-        region: place?.region || undefined,
-        country: place?.country || undefined,
-      },
-      weather,
-    };
-  } catch {
-    return {};
+    const outfitMessage = createOutfitMessage(
+      getHardcodedOutfit(),
+      createdAt + 1,
+    );
+
+    return [introMessage, outfitMessage];
   }
+
+  return [createTextMessage("assistant", getHardcodedTextReply(message))];
 }
 
-function buildHistoryFromMessages(messages: AIMessage[]): AuraHistoryTurn[] {
-  return messages
-    .filter(
-      (message): message is AIMessage & { text: string } =>
-        typeof message.text === "string" && message.text.trim().length > 0,
-    )
-    .slice(-8)
-    .map((message) => ({
-      sender: message.sender,
-      text: message.text,
-    }));
+function getInitialGreeting(mode?: string) {
+  if (mode === "outfit") {
+    return "Hi, I’m Aura, your personal AI fashion companion. Tell me what kind of outfit you want and I’ll help you put one together.";
+  }
+
+  if (mode === "closet") {
+    return "Hi, I’m Aura, your personal AI fashion companion. Ask me how to style the pieces in your closet and I’ll help you build a look.";
+  }
+
+  return "Hi, I’m Aura, your personal AI fashion companion. I can help with outfit ideas, color matching, and styling suggestions.";
 }
 
 export default function AIChatScreen() {
   const { mode } = useLocalSearchParams<{ mode?: string }>();
   const router = useRouter();
-  const [colorProfile, setColorProfile] = useState<ColorProfile | null>(null);
-  const [closetItems, setClosetItems] = useState<{ category: string; color: string; brand?: string }[]>([]);
 
+  const [closetItems, setClosetItems] = useState<ClosetItem[]>([]);
   const [messages, setMessages] = useState<AIMessage[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(true);
@@ -304,15 +220,6 @@ export default function AIChatScreen() {
   const listRef = useRef<FlatList<AIMessage>>(null);
   const user = auth.currentUser;
 
-  const auraStylist = useMemo(
-    () =>
-      httpsCallable<AuraStylistRequest, AuraStylistResponse>(
-        functions,
-        "auraStylist",
-      ),
-    [],
-  );
-
   const scrollToBottom = useCallback(() => {
     setTimeout(() => {
       listRef.current?.scrollToEnd({ animated: true });
@@ -324,55 +231,6 @@ export default function AIChatScreen() {
       scrollToBottom();
     }
   }, [messages, sending, scrollToBottom]);
-
-  const appendAuraResponse = useCallback(
-    (payload: AuraStylistResponse, createdAtBase = Date.now()): AIMessage[] => {
-      const nextMessages: AIMessage[] = [];
-
-      if (payload.greeting?.trim()) {
-        nextMessages.push(
-          createTextMessage("assistant", payload.greeting, createdAtBase),
-        );
-      }
-
-      if (payload.assistantMessage?.trim()) {
-        nextMessages.push(
-          createTextMessage(
-            "assistant",
-            payload.assistantMessage,
-            createdAtBase + 1,
-          ),
-        );
-      }
-
-      if (
-        payload.responseMode === "outfits" &&
-        Array.isArray(payload.outfitCards)
-      ) {
-        payload.outfitCards.forEach((card, index) => {
-          nextMessages.push({
-            id: `assistant-outfit-${createdAtBase}-${index}`,
-            sender: "assistant",
-            createdAt: createdAtBase + 3 + index,
-            outfit: mapOutfitCardToAIOutfit(card),
-          });
-        });
-      }
-
-      if (nextMessages.length === 0) {
-        nextMessages.push(
-          createTextMessage(
-            "assistant",
-            "I can help with styling advice, outfit ideas, and color pairings.",
-            createdAtBase,
-          ),
-        );
-      }
-
-      return nextMessages;
-    },
-    [],
-  );
 
   const clearDraftAttachments = useCallback(() => {
     setPendingImageUri(null);
@@ -390,48 +248,33 @@ export default function AIChatScreen() {
 
     try {
       const closetSnap = await getDocs(
-        query(collection(db, "closetItems"), where("userId", "==", user.uid))
+        query(collection(db, "closetItems"), where("userId", "==", user.uid)),
       );
-      const fetchedCloset = closetSnap.docs.map((d) => {
-        const data = d.data();
+
+      const fetchedCloset = closetSnap.docs.map((doc) => {
+        const data = doc.data();
+
         return {
           category: data.category || "",
           color: data.color || "",
           brand: data.brand || undefined,
         };
       });
+
       setClosetItems(fetchedCloset);
 
-      const [greetingContext, profile] = await Promise.all([
-        getGreetingContext(),
-        getColorProfile(user.uid),
-      ]);
-
-      if (profile) setColorProfile(profile);
-
-      const response = await auraStylist({
-        message: getInitialPrompt(mode),
-        isInitialMessage: true,
-        location: greetingContext.location,
-        weather: greetingContext.weather,
-        history: [],
-        colorProfile: profile ?? undefined,
-        closetItems: fetchedCloset,
-      });
-
-      const nextMessages = appendAuraResponse(response.data, Date.now());
-      setMessages(nextMessages);
+      setMessages([createTextMessage("assistant", getInitialGreeting(mode))]);
     } catch {
       setMessages([
         createTextMessage(
           "assistant",
-          "Hello! I’m Aura, your AI fashion companion.",
+          "Hi, I’m Aura, your personal AI fashion companion.",
         ),
       ]);
     } finally {
       setLoading(false);
     }
-  }, [appendAuraResponse, auraStylist, mode, user]);
+  }, [mode, user]);
 
   useEffect(() => {
     loadInitialGreeting();
@@ -482,53 +325,36 @@ export default function AIChatScreen() {
       imageSourceLabel: pendingImageLabel || undefined,
     };
 
-    const requestText =
-      trimmed ||
-      (pendingImageUri
-        ? "What is this item and what should I wear with it?"
-        : "");
-
-    const historyForRequest = buildHistoryFromMessages([
-      ...sortedMessages,
-      ...(trimmed ? [userMessage] : []),
-    ]);
-
     setMessages((prev) => [...prev, userMessage]);
     setInput("");
     setSending(true);
 
-    const imageUriForRequest = pendingImageUri;
+    const hadImage = Boolean(pendingImageUri);
     clearDraftAttachments();
 
     try {
-      let preparedImage: PreparedImagePayload | undefined;
+      await new Promise((resolve) => setTimeout(resolve, 500));
 
-      if (imageUriForRequest) {
-        preparedImage = await prepareImageForAI(imageUriForRequest);
+      let assistantMessages: AIMessage[];
+
+      if (hadImage && !trimmed) {
+        assistantMessages = [
+          createTextMessage(
+            "assistant",
+            "Image-based AI replies are not connected right now, but I can still help with hardcoded outfit and color suggestions.",
+          ),
+        ];
+      } else {
+        assistantMessages = getHardcodedAssistantMessages(trimmed);
       }
 
-      const greetingContext = await getGreetingContext();
-
-      const response = await auraStylist({
-        message: requestText,
-        history: historyForRequest,
-        location: greetingContext.location,
-        weather: greetingContext.weather,
-        imageBase64: preparedImage?.imageBase64,
-        imageMimeType: preparedImage?.imageMimeType,
-        colorProfile: colorProfile ?? undefined,
-        closetItems: closetItems.length > 0 ? closetItems : undefined,
-      });
-
-      const assistantMessages = appendAuraResponse(response.data, Date.now());
-
       setMessages((prev) => [...prev, ...assistantMessages]);
-    } catch (error) {
+    } catch {
       setMessages((prev) => [
         ...prev,
         createTextMessage(
           "assistant",
-          `Sorry — I couldn’t send that right now. ${getErrorMessage(error)}`,
+          "Sorry — I couldn’t send that right now.",
         ),
       ]);
     } finally {
@@ -621,8 +447,13 @@ export default function AIChatScreen() {
         <View style={styles.container}>
           <View style={styles.header}>
             <Pressable onPress={() => router.back()} style={styles.backBtn}>
-              <Ionicons name="arrow-back" size={24} color={colors.buttonPrimary} />
+              <Ionicons
+                name="arrow-back"
+                size={24}
+                color={colors.buttonPrimary}
+              />
             </Pressable>
+
             <View style={styles.headerRow}>
               <Image
                 source={require("../../assets/icons/aura-logo.png")}
