@@ -4,10 +4,9 @@ import {
   Alert,
   Image,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
-  View,
+  View
 } from "react-native";
 import AppScreenWrapper from "../../components/layout/AppScreenWrapper";
 
@@ -149,9 +148,7 @@ export default function ClosetScreen() {
   };
 
   return (
-    <AppScreenWrapper
-      scrollProps={{ scrollEnabled: filteredItems.length === 0 }}
-    >
+    <AppScreenWrapper>
       <Text style={styles.title}>My Closet</Text>
       <Text style={styles.subtitle}>Manage your wardrobe</Text>
 
@@ -191,7 +188,7 @@ export default function ClosetScreen() {
       {filteredItems.length === 0 ? (
         <Text style={styles.empty}>✨ Your closet is empty</Text>
       ) : (
-        <ScrollView contentContainerStyle={styles.grid}>
+        <View style={styles.grid}>
           {filteredItems.map((item) => {
             const imageUri = getDisplayImage(item);
             return (
@@ -230,7 +227,7 @@ export default function ClosetScreen() {
               </Pressable>
             );
           })}
-        </ScrollView>
+        </View>
       )}
     </AppScreenWrapper>
   );
